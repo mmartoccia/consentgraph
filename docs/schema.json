@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://consentgraph.dev/schema.json",
+  "title": "ConsentGraph",
+  "description": "Schema for a ConsentGraph policy file. Defines what actions an AI agent may take autonomously, what requires human approval, and what is permanently blocked.",
+  "type": "object",
+  "required": ["domains"],
+  "properties": {
+    "domains": {
+      "type": "object",
+      "description": "Map of domain names to their action tier definitions.",
+      "additionalProperties": {
+        "$ref": "#/definitions/ConsentDomain"
+      }
+    },
+    "consent_decay": {
+      "$ref": "#/definitions/ConsentDecay"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Optional metadata about this consent graph.",
+      "properties": {
+        "version": { "type": "string" },
+        "owner": { "type": "string" },
+        "created": { "type": "string", "format": "date" },
+        "last_reviewed": { "type": "string", "format": "date" }
+      }
+    }
+  },
+  "definitions": {
+    "ConsentDomain": {
+      "type": "object",
+      "description": "Action tier definitions for a single domain.",
+      "properties": {
+        "autonomous": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Actions the agent may execute autonomously. Logged but no notification."
+        },
+        "requires_approval": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Actions requiring human approval. At high confidence (>=0.85) agent executes and notifies (VISIBLE). At low confidence agent asks first (FORCED)."
+        },
+        "blocked": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Actions that are permanently prohibited. Attempt is logged and operator is alerted."
+        },
+        "trust_level": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "Overall trust level for this domain. Informational only."
+        }
+      }
+    },
+    "ConsentDecay": {
+      "type": "object",
+      "description": "Configuration for automatic consent graph review reminders.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "review_interval_days": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

@@ -1,0 +1,78 @@
+# ConsentGraph
+
+> Consent Graph as Code: deterministic action governance for AI agents.
+
+## What it does
+
+ConsentGraph lets you define exactly what an AI agent is authorized to do — in a single JSON file with a simple Python API. Every action is classified into one of four tiers:
+
+- SILENT: execute autonomously, log only
+- VISIBLE: execute and notify the operator afterward
+- FORCED: require explicit operator approval before executing
+- BLOCKED: never execute under any circumstances, alert operator
+
+## Installation
+
+```
+pip install consentgraph
+```
+
+## Core API
+
+```python
+from consentgraph import check_consent, log_override, AegisConfig
+
+# Check if an action is permitted
+tier = check_consent("email", "send", confidence=0.9)
+# Returns: "SILENT" | "VISIBLE" | "FORCED" | "BLOCKED"
+
+# Log when operator overrides a decision
+log_override("email", "send", reason="user confirmed", operator_decision="approved")
+```
+
+## CLI
+
+```bash
+consentgraph init              # create example consent-graph.json
+consentgraph check email send  # check a single action
+consentgraph summary           # human-readable policy overview
+consentgraph validate          # validate graph against schema
+consentgraph mcp               # start MCP server (stdio)
+```
+
+## MCP Integration
+
+ConsentGraph exposes a single MCP tool: `check_consent(domain, action, confidence)`.
+Start the MCP server: `consentgraph mcp`
+The tool returns the tier string and logs the evaluation to the audit trail.
+
+## Consent Graph JSON Schema
+
+```json
+{
+  "domains": {
+    "<domain_name>": {
+      "autonomous": ["action1", "action2"],
+      "requires_approval": ["action3"],
+      "blocked": ["action4"],
+      "trust_level": "high | medium | low"
+    }
+  },
+  "consent_decay": {
+    "enabled": true,
+    "review_interval_days": 30
+  }
+}
+```
+
+## Audit Trail
+
+Every consent evaluation is appended to `~/.consentgraph/logs/consent-attempts.jsonl`.
+Format: `{timestamp, domain, action, confidence, tier, reason}`
+
+## Links
+
+- GitHub: https://github.com/mmartoccia/consentgraph
+- PyPI: https://pypi.org/project/consentgraph/
+- Schema: https://consentgraph.dev/schema.json
+- Docs: https://consentgraph.dev

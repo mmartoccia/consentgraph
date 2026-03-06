@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ConsentGraph — AI Agent Action Governance</title>
+  <meta name="description" content="Consent Graph as Code. Define exactly what your AI agent can do autonomously, what requires human approval, and what is permanently off-limits — in a single JSON file.">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace; background: #0d1117; color: #e6edf3; line-height: 1.6; }
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    header { padding: 3rem 2rem 2rem; max-width: 860px; margin: 0 auto; }
+    .logo { font-size: 1.1rem; color: #8b949e; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 1.5rem; }
+    h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 700; color: #f0f6fc; margin-bottom: 1rem; }
+    h1 span { color: #58a6ff; }
+    .subtitle { font-size: 1.2rem; color: #8b949e; max-width: 600px; }
+
+    .install-block { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem 1.5rem; margin: 2.5rem auto; max-width: 860px; display: flex; align-items: center; gap: 1rem; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .install-block .prompt { color: #8b949e; }
+    .install-block .cmd { color: #79c0ff; font-size: 1.05rem; }
+
+    main { max-width: 860px; margin: 0 auto; padding: 0 2rem 4rem; }
+
+    .problem { font-size: 1.1rem; color: #c9d1d9; margin-bottom: 3rem; border-left: 3px solid #30363d; padding-left: 1.25rem; }
+
+    h2 { font-size: 1.3rem; color: #f0f6fc; margin: 2.5rem 0 1rem; }
+
+    .tiers { display: grid; gap: 1rem; margin-bottom: 3rem; }
+    .tier { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem 1.5rem; display: grid; grid-template-columns: 100px 1fr; gap: 1rem; align-items: start; }
+    .tier-label { font-family: monospace; font-weight: 700; font-size: 0.9rem; padding: 0.25rem 0.5rem; border-radius: 4px; text-align: center; }
+    .silent { background: #1f4423; color: #56d364; }
+    .visible { background: #2d2a04; color: #e3b341; }
+    .forced { background: #2d1a04; color: #f0883e; }
+    .blocked { background: #3d1c1c; color: #f85149; }
+    .tier-desc { color: #8b949e; font-size: 0.95rem; }
+    .tier-desc strong { color: #e6edf3; }
+
+    pre { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.88rem; line-height: 1.7; margin-bottom: 1.5rem; }
+    .kw { color: #79c0ff; }
+    .str { color: #a5d6ff; }
+    .comment { color: #8b949e; }
+    .num { color: #79c0ff; }
+
+    .links { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #21262d; }
+    .link-btn { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 0.6rem 1.2rem; color: #e6edf3; font-size: 0.9rem; transition: background 0.15s; }
+    .link-btn:hover { background: #30363d; text-decoration: none; }
+
+    .mcp-badge { display: inline-block; background: #1c2d3a; border: 1px solid #1f6feb; color: #58a6ff; font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: 4px; margin-left: 0.5rem; vertical-align: middle; }
+
+    footer { text-align: center; padding: 2rem; color: #484f58; font-size: 0.85rem; border-top: 1px solid #21262d; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ConsentGraph</div>
+  <h1>AI agents should ask<br>before they act. <span>Now they can.</span></h1>
+  <p class="subtitle">Consent Graph as Code — define what your agent can do autonomously, what requires approval, and what is permanently off-limits. In a single JSON file.</p>
+</header>
+
+<div class="install-block">
+  <span class="prompt">$</span>
+  <span class="cmd">pip install consentgraph</span>
+</div>
+
+<main>
+
+  <p class="problem">
+    AI agents break trust not because they're malicious — but because the authorization boundary was never made explicit. ConsentGraph gives you a deterministic, auditable policy layer that travels with your deployment.
+  </p>
+
+  <h2>Four tiers. No ambiguity.</h2>
+  <div class="tiers">
+    <div class="tier">
+      <div class="tier-label silent">SILENT</div>
+      <div class="tier-desc"><strong>Execute and log.</strong> High-trust actions the agent handles autonomously. No notification, full audit trail.</div>
+    </div>
+    <div class="tier">
+      <div class="tier-label visible">VISIBLE</div>
+      <div class="tier-desc"><strong>Execute and notify.</strong> Agent acts, then tells the operator what it did and why. Undoable.</div>
+    </div>
+    <div class="tier">
+      <div class="tier-label forced">FORCED</div>
+      <div class="tier-desc"><strong>Ask first.</strong> Low-confidence or sensitive actions require explicit operator approval before execution.</div>
+    </div>
+    <div class="tier">
+      <div class="tier-label blocked">BLOCKED</div>
+      <div class="tier-desc"><strong>Never execute.</strong> Absolute prohibition. Attempt is logged and operator is alerted.</div>
+    </div>
+  </div>
+
+  <h2>Three lines to integrate</h2>
+  <pre><span class="kw">from</span> consentgraph <span class="kw">import</span> check_consent
+
+tier = check_consent(<span class="str">"email"</span>, <span class="str">"send"</span>, confidence=<span class="num">0.9</span>)
+<span class="comment"># → "SILENT" | "VISIBLE" | "FORCED" | "BLOCKED"</span></pre>
+
+  <h2>Define policy in JSON</h2>
+  <pre>{
+  <span class="str">"domains"</span>: {
+    <span class="str">"email"</span>: {
+      <span class="str">"autonomous"</span>: [<span class="str">"read"</span>, <span class="str">"archive_promo"</span>],
+      <span class="str">"requires_approval"</span>: [<span class="str">"send"</span>, <span class="str">"reply"</span>],
+      <span class="str">"blocked"</span>: [<span class="str">"delete_all"</span>, <span class="str">"forward_external"</span>]
+    },
+    <span class="str">"filesystem"</span>: {
+      <span class="str">"autonomous"</span>: [<span class="str">"read"</span>, <span class="str">"create_temp"</span>],
+      <span class="str">"requires_approval"</span>: [<span class="str">"write"</span>, <span class="str">"rename"</span>],
+      <span class="str">"blocked"</span>: [<span class="str">"delete"</span>, <span class="str">"chmod"</span>]
+    }
+  }
+}</pre>
+
+  <h2>MCP-native <span class="mcp-badge">MCP</span></h2>
+  <pre><span class="comment"># Any MCP-compatible agent can query your policy directly</span>
+consentgraph mcp
+
+<span class="comment"># Tool exposed: check_consent(domain, action, confidence) → tier</span></pre>
+
+  <div class="links">
+    <a href="https://github.com/mmartoccia/consentgraph" class="link-btn">GitHub</a>
+    <a href="https://pypi.org/project/consentgraph/" class="link-btn">PyPI</a>
+    <a href="/llms.txt" class="link-btn">llms.txt</a>
+    <a href="/schema.json" class="link-btn">Schema</a>
+  </div>
+
+</main>
+
+<footer>
+  MIT License &nbsp;·&nbsp; <a href="https://github.com/mmartoccia/consentgraph">github.com/mmartoccia/consentgraph</a>
+</footer>
+
+</body>
+</html>
