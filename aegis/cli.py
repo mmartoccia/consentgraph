@@ -194,7 +194,7 @@ def validate(ctx: click.Context) -> None:
         click.echo(click.style("✓ Valid", fg="green", bold=True))
         click.echo(f"  {len(graph.domains)} domain(s) configured")
         click.echo(f"  Decay: {'enabled' if graph.consent_decay.enabled else 'disabled'}")
-    except Exception as e:
+    except (ValueError, TypeError, KeyError) as e:
         click.echo(click.style("✗ Invalid", fg="red", bold=True))
         click.echo(str(e), err=True)
         sys.exit(1)
