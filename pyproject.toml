@@ -54,7 +54,7 @@ Repository = "https://github.com/mmartoccia/consentgraph"
 Issues = "https://github.com/mmartoccia/consentgraph/issues"
 
 [project.scripts]
-consentgraph = ""consentgraph.cli:main"
+consentgraph = "consentgraph.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["consentgraph"]
