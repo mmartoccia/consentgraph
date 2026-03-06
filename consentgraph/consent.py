@@ -1,5 +1,5 @@
 """
-Aegis Consent Engine
+ConsentGraph Consent Engine
 
 Core 4-tier consent resolution for AI agent action governance.
 
@@ -10,9 +10,9 @@ Tiers:
   BLOCKED: Never execute. Log attempt and alert.
 
 Usage:
-    from aegis import check_consent, log_override, AegisConfig
+    from consentgraph import check_consent, log_override, ConsentGraphConfig
 
-    config = AegisConfig(graph_path="./consent-graph.json")
+    config = ConsentGraphConfig(graph_path="./consent-graph.json")
     tier = check_consent("email", "send", confidence=0.9, config=config)
 """
 
@@ -24,9 +24,9 @@ from typing import Optional
 
 
 @dataclass
-class AegisConfig:
+class ConsentGraphConfig:
     """
-    Configuration for the Aegis consent engine.
+    Configuration for the ConsentGraph consent engine.
 
     Attributes:
         graph_path: Path to the consent-graph.json file.
@@ -35,10 +35,10 @@ class AegisConfig:
                               (vs FORCED). Default: 0.85.
     """
     graph_path: str = field(
-        default_factory=lambda: os.path.expanduser("~/.aegis/consent-graph.json")
+        default_factory=lambda: os.path.expanduser("~/.consentgraph/consent-graph.json")
     )
     log_dir: str = field(
-        default_factory=lambda: os.path.expanduser("~/.aegis/logs/")
+        default_factory=lambda: os.path.expanduser("~/.consentgraph/logs/")
     )
     confidence_threshold: float = 0.85
 
@@ -50,24 +50,24 @@ class AegisConfig:
 
 
 # Module-level default config (override per call or set globally)
-_default_config: Optional[AegisConfig] = None
+_default_config: Optional[ConsentGraphConfig] = None
 
 
-def set_default_config(config: AegisConfig) -> None:
+def set_default_config(config: ConsentGraphConfig) -> None:
     """Set the module-level default config. Useful for one-time setup."""
     global _default_config
     _default_config = config
 
 
-def _get_config(config: Optional[AegisConfig]) -> AegisConfig:
+def _get_config(config: Optional[ConsentGraphConfig]) -> ConsentGraphConfig:
     if config is not None:
         return config
     if _default_config is not None:
         return _default_config
-    return AegisConfig()
+    return ConsentGraphConfig()
 
 
-def load_graph(config: Optional[AegisConfig] = None) -> dict:
+def load_graph(config: Optional[ConsentGraphConfig] = None) -> dict:
     """Load the consent graph from disk. Returns empty defaults if missing."""
     cfg = _get_config(config)
     path = os.path.expanduser(cfg.graph_path)
@@ -81,7 +81,7 @@ def check_consent(
     domain: str,
     action: str,
     confidence: float = 0.5,
-    config: Optional[AegisConfig] = None,
+    config: Optional[ConsentGraphConfig] = None,
 ) -> str:
     """
     Check consent for an agent action.
@@ -90,9 +90,9 @@ def check_consent(
         domain:     Logical domain, e.g. "email", "calendar", "filesystem".
         action:     Action name, e.g. "send", "delete", "read".
         confidence: Float 0-1. How confident the agent is about operator intent.
-                    Values >= AegisConfig.confidence_threshold resolve requires_approval
+                    Values >= ConsentGraphConfig.confidence_threshold resolve requires_approval
                     as VISIBLE; below that as FORCED.
-        config:     Optional AegisConfig. Falls back to module default or built-in default.
+        config:     Optional ConsentGraphConfig. Falls back to module default or built-in default.
 
     Returns:
         One of: "SILENT" | "VISIBLE" | "FORCED" | "BLOCKED"
@@ -147,7 +147,7 @@ def log_override(
     action: str,
     reason: str,
     operator_decision: str,
-    config: Optional[AegisConfig] = None,
+    config: Optional[ConsentGraphConfig] = None,
 ) -> None:
     """
     Log a human override of a consent decision.
@@ -157,7 +157,7 @@ def log_override(
         action:            The action that was overridden.
         reason:            Why the override happened.
         operator_decision: "approved" | "denied" | "modified"
-        config:            Optional AegisConfig.
+        config:            Optional ConsentGraphConfig.
     """
     cfg = _get_config(config)
     entry = {
@@ -179,7 +179,7 @@ def _log_attempt(
     confidence: float,
     tier: str,
     reason: str,
-    config: AegisConfig,
+    config: ConsentGraphConfig,
 ) -> None:
     """Internal: append every consent check to the audit log."""
     entry = {
@@ -196,7 +196,7 @@ def _log_attempt(
         f.write(json.dumps(entry) + "\n")
 
 
-def get_consent_summary(config: Optional[AegisConfig] = None) -> str:
+def get_consent_summary(config: Optional[ConsentGraphConfig] = None) -> str:
     """Return a human-readable summary of the loaded consent graph."""
     graph = load_graph(_get_config(config))
     lines = ["# Consent Graph Summary", ""]
@@ -228,7 +228,7 @@ def get_consent_summary(config: Optional[AegisConfig] = None) -> str:
     return "\n".join(lines)
 
 
-def get_override_stats(config: Optional[AegisConfig] = None) -> str:
+def get_override_stats(config: Optional[ConsentGraphConfig] = None) -> str:
     """Analyze override patterns to suggest consent graph updates."""
     cfg = _get_config(config)
     log_path = cfg.override_log_path()
@@ -276,7 +276,7 @@ def get_override_stats(config: Optional[AegisConfig] = None) -> str:
     return "\n".join(lines)
 
 
-def check_decay(config: Optional[AegisConfig] = None) -> tuple[bool, str]:
+def check_decay(config: Optional[ConsentGraphConfig] = None) -> tuple[bool, str]:
     """
     Check if the consent graph is due for a review (decay check).
 

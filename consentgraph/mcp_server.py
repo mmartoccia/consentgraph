@@ -1,25 +1,25 @@
 """
-Aegis MCP Server
+ConsentGraph MCP Server
 
-Exposes the Aegis consent check as an MCP tool so any MCP-compatible
+Exposes the ConsentGraph consent check as an MCP tool so any MCP-compatible
 agent framework can call it natively.
 
 Tool: check_consent(domain, action, confidence) → tier string
 
 Usage (stdio transport):
-    python -m aegis.mcp_server
+    python -m "consentgraph.mcp_server
 
 Or via CLI:
-    aegis mcp
+    consentgraph mcp
 
 MCP client config example (Claude Desktop / any MCP host):
     {
       "mcpServers": {
-        "aegis": {
+        "consentgraph": {
           "command": "python",
-          "args": ["-m", "aegis.mcp_server"],
+          "args": ["-m", ""consentgraph.mcp_server"],
           "env": {
-            "AEGIS_GRAPH_PATH": "/path/to/consent-graph.json"
+            "CONSENTGRAPH_GRAPH_PATH": "/path/to/consent-graph.json"
           }
         }
       }
@@ -30,7 +30,7 @@ import os
 import json
 from typing import Any
 
-from aegis.consent import check_consent, AegisConfig
+from consentgraph.consent import check_consent, ConsentGraphConfig
 
 try:
     from mcp.server import Server
@@ -41,20 +41,20 @@ except ImportError:
     _MCP_AVAILABLE = False
 
 
-def _build_config() -> AegisConfig:
-    """Build AegisConfig from environment variables (for MCP subprocess context)."""
+def _build_config() -> ConsentGraphConfig:
+    """Build ConsentGraphConfig from environment variables (for MCP subprocess context)."""
     kwargs: dict[str, Any] = {}
-    if graph_path := os.environ.get("AEGIS_GRAPH_PATH"):
+    if graph_path := os.environ.get("CONSENTGRAPH_GRAPH_PATH"):
         kwargs["graph_path"] = graph_path
-    if log_dir := os.environ.get("AEGIS_LOG_DIR"):
+    if log_dir := os.environ.get("CONSENTGRAPH_LOG_DIR"):
         kwargs["log_dir"] = log_dir
-    if threshold := os.environ.get("AEGIS_CONFIDENCE_THRESHOLD"):
+    if threshold := os.environ.get("CONSENTGRAPH_CONFIDENCE_THRESHOLD"):
         kwargs["confidence_threshold"] = float(threshold)
-    return AegisConfig(**kwargs)
+    return ConsentGraphConfig(**kwargs)
 
 
 def main() -> None:
-    """Start the Aegis MCP server on stdio."""
+    """Start the ConsentGraph MCP server on stdio."""
     if not _MCP_AVAILABLE:
         raise ImportError(
             "The 'mcp' package is required to run the MCP server.\n"
@@ -62,7 +62,7 @@ def main() -> None:
         )
 
     config = _build_config()
-    server = Server("aegis-consent")
+    server = Server("consentgraph")
 
     @server.list_tools()
     async def list_tools() -> list[types.Tool]:

@@ -1,5 +1,5 @@
 """
-Aegis test suite -- covers all 4 tiers and edge cases.
+ConsentGraph test suite -- covers all 4 tiers and edge cases.
 """
 
 import json
@@ -8,8 +8,8 @@ import tempfile
 
 import pytest
 
-from aegis import AegisConfig, check_consent, log_override
-from aegis.schema import validate_graph
+from consentgraph import ConsentGraphConfig, check_consent, log_override
+from consentgraph.schema import validate_graph
 
 
 # ---------------------------------------------------------------------------
@@ -41,7 +41,7 @@ def config(tmp_path):
     graph_path.write_text(json.dumps(SAMPLE_GRAPH))
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
-    return AegisConfig(graph_path=str(graph_path), log_dir=str(log_dir))
+    return ConsentGraphConfig(graph_path=str(graph_path), log_dir=str(log_dir))
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +124,7 @@ class TestCustomThreshold:
         graph_path = tmp_path / "consent-graph.json"
         graph_path.write_text(json.dumps(SAMPLE_GRAPH))
         # Threshold at 0.95 -- 0.9 should now be FORCED
-        config = AegisConfig(
+        config = ConsentGraphConfig(
             graph_path=str(graph_path),
             log_dir=str(tmp_path / "logs"),
             confidence_threshold=0.95,

@@ -1,13 +1,13 @@
 """
-Aegis Quickstart -- 10-line integration example.
+ConsentGraph Quickstart -- 10-line integration example.
 
 This shows the minimal integration pattern: check before you act.
 """
 
-from aegis import AegisConfig, check_consent, log_override
+from consentgraph import ConsentGraphConfig, check_consent, log_override
 
-# Point Aegis at your consent graph
-config = AegisConfig(graph_path="./consent-graph.example.json")
+# Point ConsentGraph at your consent graph
+config = ConsentGraphConfig(graph_path="./consent-graph.example.json")
 
 # Check before any external action
 tier = check_consent("messaging", "send", confidence=0.9, config=config)

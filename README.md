@@ -1,11 +1,11 @@
-# aegis-consent
+# consentgraph
 
-AI agents break trust when they act without permission. Not because they're malicious -- because the authorization boundary was never made explicit. `aegis-consent` gives you a simple, auditable way to define exactly what your agent can do autonomously, what requires human approval, and what is permanently off-limits -- in a single JSON file that travels with your deployment.
+AI agents break trust when they act without permission. Not because they're malicious -- because the authorization boundary was never made explicit. `consentgraph` gives you a simple, auditable way to define exactly what your agent can do autonomously, what requires human approval, and what is permanently off-limits -- in a single JSON file that travels with your deployment.
 
 ```python
-from aegis import check_consent, AegisConfig
+from consentgraph import check_consent, ConsentGraphConfig
 
-config = AegisConfig(graph_path="./consent-graph.json")
+config = ConsentGraphConfig(graph_path="./consent-graph.json")
 tier = check_consent("email", "send", confidence=0.9, config=config)
 # → "VISIBLE"  (execute, then notify operator)
 ```
@@ -15,9 +15,9 @@ tier = check_consent("email", "send", confidence=0.9, config=config)
 ## Install
 
 ```bash
-pip install aegis-consent
+pip install consentgraph
 # With MCP server support:
-pip install "aegis-consent[mcp]"
+pip install "consentgraph[mcp]"
 ```
 
 ---
@@ -66,17 +66,17 @@ Define your domains and actions in a single JSON file:
 
 See [`examples/consent-graph.example.json`](examples/consent-graph.example.json) for a full 5-domain example with design rationale notes.
 
-**Note on JSON comments:** JSON doesn't support comments natively. The example file uses `"_design_note"` keys for inline documentation -- Aegis ignores unknown keys.
+**Note on JSON comments:** JSON doesn't support comments natively. The example file uses `"_design_note"` keys for inline documentation -- ConsentGraph ignores unknown keys.
 
 ---
 
 ## Python API
 
 ```python
-from aegis import check_consent, log_override, AegisConfig
+from consentgraph import check_consent, log_override, ConsentGraphConfig
 
 # Configure once
-config = AegisConfig(
+config = ConsentGraphConfig(
     graph_path="./consent-graph.json",
     log_dir="./logs/",
     confidence_threshold=0.85,  # default
@@ -106,12 +106,12 @@ log_override(
 )
 ```
 
-### AegisConfig defaults
+### ConsentGraphConfig defaults
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `graph_path` | `~/.aegis/consent-graph.json` | Path to consent graph |
-| `log_dir` | `~/.aegis/logs/` | Audit log directory |
+| `graph_path` | `~/.consentgraph/consent-graph.json` | Path to consent graph |
+| `log_dir` | `~/.consentgraph/logs/` | Audit log directory |
 | `confidence_threshold` | `0.85` | Min confidence for VISIBLE vs FORCED |
 
 ---
@@ -120,49 +120,49 @@ log_override(
 
 ```bash
 # Create a starter consent-graph.json
-aegis init
+consentgraph init
 
 # Check consent for an action
-aegis check email send --confidence 0.9
+consentgraph check email send --confidence 0.9
 
 # Print graph summary
-aegis summary
+consentgraph summary
 
 # Validate graph schema
-aegis validate
+consentgraph validate
 
 # Check if graph needs review (decay)
-aegis decay
+consentgraph decay
 
 # Analyze override patterns
-aegis overrides
+consentgraph overrides
 
 # Override graph location
-aegis --graph /path/to/consent-graph.json summary
+consentgraph --graph /path/to/consent-graph.json summary
 ```
 
 ---
 
 ## MCP Server
 
-Aegis ships an MCP server that exposes `check_consent` as a native tool. Any MCP-compatible framework (LangChain, CrewAI, Claude Desktop, custom) can call it.
+ConsentGraph ships an MCP server that exposes `check_consent` as a native tool. Any MCP-compatible framework (LangChain, CrewAI, Claude Desktop, custom) can call it.
 
 **Start the server:**
 ```bash
-aegis mcp
+consentgraph mcp
 # or
-python -m aegis.mcp_server
+python -m "consentgraph.mcp_server
 ```
 
 **MCP client config (e.g. Claude Desktop):**
 ```json
 {
   "mcpServers": {
-    "aegis": {
-      "command": "aegis",
+    "consentgraph": {
+      "command": "consentgraph",
       "args": ["mcp"],
       "env": {
-        "AEGIS_GRAPH_PATH": "/path/to/consent-graph.json"
+        "CONSENTGRAPH_GRAPH_PATH": "/path/to/consent-graph.json"
       }
     }
   }
@@ -196,7 +196,7 @@ Output:
 ## Schema Validation
 
 ```python
-from aegis import validate_graph
+from consentgraph import validate_graph
 import json
 
 with open("consent-graph.json") as f:
@@ -208,7 +208,7 @@ print(f"{len(graph.domains)} domains configured")
 
 Or via CLI:
 ```bash
-aegis validate
+consentgraph validate
 ```
 
 ---
@@ -224,7 +224,7 @@ Every consent check is logged to `{log_dir}/consent-attempts.jsonl`. Every human
 Use the override log to identify patterns and refine your graph:
 
 ```bash
-aegis overrides
+consentgraph overrides
 # → "email/send: approved 5x → consider upgrading to autonomous"
 ```
 
@@ -234,7 +234,7 @@ aegis overrides
 
 Enterprise and government deployments of AI agents face a common failure mode: the authorization boundary is implicit, embedded in prompts or agent code, invisible to auditors, and impossible to update without a code deploy. When something goes wrong -- and it will -- there's no audit trail and no clear policy to point to.
 
-Aegis makes the boundary explicit, version-controlled, human-readable, and independently auditable. The consent graph is the policy. The audit log is the evidence. The override log is the feedback loop that improves the policy over time.
+ConsentGraph makes the boundary explicit, version-controlled, human-readable, and independently auditable. The consent graph is the policy. The audit log is the evidence. The override log is the feedback loop that improves the policy over time.
 
 For regulated industries, this pattern maps directly onto existing control frameworks (SOC 2 access controls, FedRAMP least-privilege, NIST AI RMF). The consent graph is a machine-readable policy artifact that compliance teams can review without reading agent code.
 

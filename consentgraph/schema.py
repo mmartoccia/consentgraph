@@ -1,5 +1,5 @@
 """
-Aegis Schema
+ConsentGraph Schema
 
 Pydantic v2 models for the consent-graph.json format.
 Use validate_graph() to verify a graph dict against these models.
@@ -113,7 +113,7 @@ class ConsentGraph(BaseModel):
 
 def validate_graph(graph: dict) -> ConsentGraph:
     """
-    Validate a consent graph dict against the Aegis schema.
+    Validate a consent graph dict against the ConsentGraph schema.
 
     Args:
         graph: Raw dict (e.g. from json.load()).

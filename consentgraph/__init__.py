@@ -1,5 +1,5 @@
 """
-Aegis -- Consent Graph as Code for AI agents.
+ConsentGraph -- Consent Graph as Code for AI agents.
 
 Deterministic, auditable action governance for autonomous agents.
 Define what your agent can do autonomously, what requires a human,
@@ -7,9 +7,9 @@ and what is permanently off-limits -- in a single JSON file.
 
 Quick start::
 
-    from aegis import check_consent, AegisConfig
+    from consentgraph import check_consent, ConsentGraphConfig
 
-    config = AegisConfig(graph_path="./consent-graph.json")
+    config = ConsentGraphConfig(graph_path="./consent-graph.json")
     tier = check_consent("email", "send", confidence=0.9, config=config)
 
     if tier == "BLOCKED":
@@ -25,8 +25,8 @@ Quick start::
         ...
 """
 
-from aegis.consent import (
-    AegisConfig,
+from consentgraph.consent import (
+    ConsentGraphConfig,
     check_consent,
     check_decay,
     get_consent_summary,
@@ -35,14 +35,14 @@ from aegis.consent import (
     log_override,
     set_default_config,
 )
-from aegis.schema import ConsentDomain, ConsentGraph, ConsentGraphMetadata, validate_graph
+from consentgraph.schema import ConsentDomain, ConsentGraph, ConsentGraphMetadata, validate_graph
 
 __version__ = "0.1.0"
 __all__ = [
     # Core
     "check_consent",
     "log_override",
-    "AegisConfig",
+    "ConsentGraphConfig",
     "set_default_config",
     # Graph helpers
     "load_graph",

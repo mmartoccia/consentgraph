@@ -1,14 +1,14 @@
 """
-Aegis CLI
+ConsentGraph CLI
 
 Commands:
-    aegis init      -- Create a starter consent-graph.json at the default location
-    aegis check     -- Check consent for a domain/action
-    aegis summary   -- Print human-readable graph summary
-    aegis validate  -- Validate graph against Pydantic schema
-    aegis decay     -- Check if the graph needs review
-    aegis overrides -- Show override pattern analysis
-    aegis mcp       -- Start the MCP server (stdio)
+    consentgraph init      -- Create a starter consent-graph.json at the default location
+    consentgraph check     -- Check consent for a domain/action
+    consentgraph summary   -- Print human-readable graph summary
+    consentgraph validate  -- Validate graph against Pydantic schema
+    consentgraph decay     -- Check if the graph needs review
+    consentgraph overrides -- Show override pattern analysis
+    consentgraph mcp       -- Start the MCP server (stdio)
 """
 
 import json
@@ -18,20 +18,20 @@ from pathlib import Path
 
 import click
 
-from aegis.consent import (
-    AegisConfig,
+from consentgraph.consent import (
+    ConsentGraphConfig,
     check_consent,
     check_decay,
     get_consent_summary,
     get_override_stats,
     log_override,
 )
-from aegis.schema import validate_graph
+from consentgraph.schema import validate_graph
 
 EXAMPLE_GRAPH = {
     "metadata": {
         "version": "0.1.0",
-        "description": "Starter Aegis consent graph -- edit to match your agent's capabilities",
+        "description": "Starter ConsentGraph consent graph -- edit to match your agent's capabilities",
     },
     "domains": {
         "messaging": {
@@ -73,8 +73,8 @@ EXAMPLE_GRAPH = {
 }
 
 
-def _make_config(ctx: click.Context) -> AegisConfig:
-    """Build AegisConfig from context params or defaults."""
+def _make_config(ctx: click.Context) -> ConsentGraphConfig:
+    """Build ConsentGraphConfig from context params or defaults."""
     graph_path = ctx.obj.get("graph_path") if ctx.obj else None
     log_dir = ctx.obj.get("log_dir") if ctx.obj else None
     kwargs = {}
@@ -82,26 +82,26 @@ def _make_config(ctx: click.Context) -> AegisConfig:
         kwargs["graph_path"] = graph_path
     if log_dir:
         kwargs["log_dir"] = log_dir
-    return AegisConfig(**kwargs)
+    return ConsentGraphConfig(**kwargs)
 
 
 @click.group()
 @click.option(
     "--graph",
     "graph_path",
-    envvar="AEGIS_GRAPH_PATH",
+    envvar="CONSENTGRAPH_GRAPH_PATH",
     default=None,
-    help="Path to consent-graph.json (overrides default ~/.aegis/consent-graph.json)",
+    help="Path to consent-graph.json (overrides default ~/.consentgraph/consent-graph.json)",
 )
 @click.option(
     "--log-dir",
-    envvar="AEGIS_LOG_DIR",
+    envvar="CONSENTGRAPH_LOG_DIR",
     default=None,
-    help="Directory for audit logs (overrides default ~/.aegis/logs/)",
+    help="Directory for audit logs (overrides default ~/.consentgraph/logs/)",
 )
 @click.pass_context
 def cli(ctx: click.Context, graph_path: str | None, log_dir: str | None) -> None:
-    """Aegis -- Consent Graph as Code for AI agents."""
+    """ConsentGraph -- Consent Graph as Code for AI agents."""
     ctx.ensure_object(dict)
     if graph_path:
         ctx.obj["graph_path"] = graph_path
@@ -177,13 +177,13 @@ def summary(ctx: click.Context) -> None:
 @cli.command()
 @click.pass_context
 def validate(ctx: click.Context) -> None:
-    """Validate the consent graph against the Aegis Pydantic schema."""
+    """Validate the consent graph against the ConsentGraph Pydantic schema."""
     config = _make_config(ctx)
     path = os.path.expanduser(config.graph_path)
 
     if not os.path.exists(path):
         click.echo(f"File not found: {path}", err=True)
-        click.echo("Run `aegis init` to create a starter graph.", err=True)
+        click.echo("Run `consentgraph init` to create a starter graph.", err=True)
         sys.exit(1)
 
     with open(path) as f:
@@ -222,9 +222,9 @@ def overrides(ctx: click.Context) -> None:
 
 @cli.command()
 def mcp() -> None:
-    """Start the Aegis MCP server on stdio (for use with MCP hosts)."""
+    """Start the ConsentGraph MCP server on stdio (for use with MCP hosts)."""
     try:
-        from aegis.mcp_server import main
+        from consentgraph.mcp_server import main
         main()
     except ImportError as e:
         click.echo(f"Error: {e}", err=True)
