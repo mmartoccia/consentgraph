@@ -20,14 +20,17 @@ pip install consentgraph
 ## Core API
 
 ```python
-from consentgraph import check_consent, log_override, AegisConfig
+from consentgraph import check_consent, log_override, ConsentGraphConfig
+
+# Configure
+config = ConsentGraphConfig(graph_path="./consent-graph.json")
 
 # Check if an action is permitted
-tier = check_consent("email", "send", confidence=0.9)
+tier = check_consent("email", "send", confidence=0.9, config=config)
 # Returns: "SILENT" | "VISIBLE" | "FORCED" | "BLOCKED"
 
 # Log when operator overrides a decision
-log_override("email", "send", reason="user confirmed", operator_decision="approved")
+log_override("email", "send", reason="user confirmed", operator_decision="approved", config=config)
 ```
 
 ## CLI
@@ -46,17 +49,41 @@ ConsentGraph exposes a single MCP tool: `check_consent(domain, action, confidenc
 Start the MCP server: `consentgraph mcp`
 The tool returns the tier string and logs the evaluation to the audit trail.
 
-## Consent Graph JSON Schema
+## Consent Graph JSON Schema (v0.2)
 
 ```json
 {
+  "metadata": {
+    "version": "0.2.0",
+    "description": "...",
+    "owner": "agent-name",
+    "compliance_profile": "FedRAMP-High | CMMC-L3 | SOC2-Type2 | IL4 | commercial",
+    "agent_id": "my-agent"
+  },
+  "boundary": {
+    "allowed_endpoints": ["*.azure.us", "*.microsoftonline.us"],
+    "deny_cross_boundary": true
+  },
   "domains": {
     "<domain_name>": {
       "autonomous": ["action1", "action2"],
       "requires_approval": ["action3"],
       "blocked": ["action4"],
-      "trust_level": "high | medium | low"
+      "trust_level": "critical | high | medium | low",
+      "control_mappings": ["AC-6", "CM-7"],
+      "_design_note": "Rationale for trust tier."
     }
+  },
+  "delegation": {
+    "trusted_agents": [
+      {
+        "agent_id": "deploy-agent",
+        "graph_path": "./deploy-agent.json",
+        "domains_allowed": ["ecs", "ecr"],
+        "requires_approval": true
+      }
+    ],
+    "max_delegation_depth": 1
   },
   "consent_decay": {
     "enabled": true,
@@ -64,6 +91,44 @@ The tool returns the tier string and logs the evaluation to the audit trail.
   }
 }
 ```
+
+## Example Consent Graphs
+
+Real-world reference examples in `examples/`:
+
+| File | Use Case | Compliance |
+|------|----------|------------|
+| `consent-graph.example.json` | Personal assistant agent | — |
+| `aws-ecs-deployment-agent.json` | AWS ECS deploy pipeline | commercial |
+| `aws-cost-optimizer-agent.json` | AWS cost management agent | commercial |
+| `k8s-ops-agent.json` | Kubernetes ops agent | commercial |
+| `gcc-azure-gov-agent.json` | Azure Government cloud agent | FedRAMP-High / IL4 |
+| `cmmc-l3-devops-agent.json` | Defense contractor DevOps agent | CMMC-L3 |
+| `multi-agent-orchestrator.json` | Orchestrator delegating to sub-agents | commercial |
+
+## Multi-Agent Delegation
+
+An orchestrator agent's consent graph defines what it can delegate to sub-agents:
+
+```json
+"delegation": {
+  "trusted_agents": [
+    { "agent_id": "cost-agent", "domains_allowed": ["ec2_rightsizing"], "requires_approval": false },
+    { "agent_id": "deploy-agent", "domains_allowed": ["ecs", "ecr"], "requires_approval": true }
+  ],
+  "max_delegation_depth": 1
+}
+```
+
+This enforces AC-5 (Separation of Duties) at the policy layer: no single agent spans all domains.
+
+## Compliance Profiles
+
+Set `compliance_profile` in metadata to signal which control framework informed the graph.
+Add `control_mappings` per domain to link actions to NIST 800-53 or 800-171 control families.
+These fields are metadata only -- enforcement is still the 4-tier model.
+
+Common profiles: `FedRAMP-High`, `FedRAMP-Moderate`, `CMMC-L3`, `CMMC-L2`, `SOC2-Type2`, `IL4`, `IL5`, `commercial`
 
 ## Audit Trail
 

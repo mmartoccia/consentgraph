@@ -1,0 +1,190 @@
+{
+  "metadata": {
+    "version": "0.1.0",
+    "description": "Consent graph for an AWS cost optimization agent. Can scan, analyze, and surface recommendations autonomously. Rightsizing and scheduling require approval. Termination of any resource is blocked.",
+    "owner": "cost-optimizer-agent",
+    "created_at": "2026-03-07",
+    "updated_at": "2026-03-07"
+  },
+
+  "domains": {
+
+    "cost_explorer": {
+      "_design_note": "Pure read. The agent's core job is analyzing spend -- all read ops are autonomous.",
+      "autonomous": [
+        "get_cost_and_usage",
+        "get_cost_forecast",
+        "get_rightsizing_recommendation",
+        "get_savings_plans_utilization",
+        "get_reservation_utilization",
+        "get_tags",
+        "list_cost_allocation_tags"
+      ],
+      "requires_approval": [
+        "create_cost_category_definition",
+        "update_cost_category_definition"
+      ],
+      "blocked": [
+        "delete_cost_category_definition"
+      ],
+      "trust_level": "low"
+    },
+
+    "ec2_rightsizing": {
+      "_design_note": "Reads and recommendations are safe. Stopping an instance to rightsize it needs human sign-off -- prod downtime is not an autonomous action. Termination is blocked regardless of cost savings.",
+      "autonomous": [
+        "describe_instances",
+        "describe_instance_types",
+        "get_metric_statistics",
+        "describe_reserved_instances",
+        "describe_savings_plans"
+      ],
+      "requires_approval": [
+        "stop_instances",
+        "modify_instance_attribute",
+        "purchase_reserved_instances",
+        "purchase_savings_plan"
+      ],
+      "blocked": [
+        "terminate_instances",
+        "delete_launch_template",
+        "cancel_reserved_instances_listing"
+      ],
+      "trust_level": "high"
+    },
+
+    "rds_rightsizing": {
+      "_design_note": "Describe and recommend freely. Modifying instance class or storage takes a maintenance window and can cause downtime -- always requires approval.",
+      "autonomous": [
+        "describe_db_instances",
+        "describe_reserved_db_instances",
+        "describe_db_snapshots",
+        "list_tags_for_resource"
+      ],
+      "requires_approval": [
+        "modify_db_instance",
+        "purchase_reserved_db_instances_offering",
+        "start_db_instance",
+        "stop_db_instance"
+      ],
+      "blocked": [
+        "delete_db_instance",
+        "delete_db_snapshot"
+      ],
+      "trust_level": "high"
+    },
+
+    "lambda": {
+      "_design_note": "Unused Lambda functions are a common cost sink. Agent can identify and tag them, but cannot delete. Concurrency changes require approval.",
+      "autonomous": [
+        "list_functions",
+        "get_function",
+        "get_function_configuration",
+        "list_tags",
+        "get_function_concurrency"
+      ],
+      "requires_approval": [
+        "tag_resource",
+        "put_function_concurrency",
+        "update_function_configuration"
+      ],
+      "blocked": [
+        "delete_function",
+        "remove_layer_version_permission",
+        "delete_layer_version"
+      ],
+      "trust_level": "medium"
+    },
+
+    "s3_storage": {
+      "_design_note": "Storage analysis is read-only. Applying lifecycle policies saves money but changes data retention -- operator must approve. Deletion is blocked.",
+      "autonomous": [
+        "list_buckets",
+        "get_bucket_location",
+        "list_objects_v2",
+        "get_bucket_lifecycle_configuration",
+        "get_bucket_tagging",
+        "get_storage_lens_configuration"
+      ],
+      "requires_approval": [
+        "put_bucket_lifecycle_configuration",
+        "put_bucket_intelligent_tiering_configuration",
+        "put_bucket_tagging"
+      ],
+      "blocked": [
+        "delete_bucket",
+        "delete_object",
+        "delete_objects",
+        "delete_bucket_lifecycle",
+        "put_bucket_acl"
+      ],
+      "trust_level": "low"
+    },
+
+    "cloudwatch_alarms": {
+      "_design_note": "Agent should be able to read cost-related metrics and create budget alarms autonomously -- that's proactive cost management. Deleting alarms is blocked.",
+      "autonomous": [
+        "describe_alarms",
+        "get_metric_statistics",
+        "describe_budgets",
+        "describe_budget_action"
+      ],
+      "requires_approval": [
+        "put_metric_alarm",
+        "create_budget",
+        "update_budget"
+      ],
+      "blocked": [
+        "delete_alarms",
+        "delete_budget",
+        "delete_budget_action"
+      ],
+      "trust_level": "medium"
+    },
+
+    "tagging": {
+      "_design_note": "Tags are the foundation of cost allocation. Agent can read tags everywhere. Applying cost-allocation tags requires approval -- incorrect tagging corrupts your cost reports.",
+      "autonomous": [
+        "get_resources",
+        "get_tag_keys",
+        "get_tag_values",
+        "describe_report_definitions"
+      ],
+      "requires_approval": [
+        "tag_resources",
+        "activate_organizations_access"
+      ],
+      "blocked": [
+        "untag_resources",
+        "deactivate_organizations_access"
+      ],
+      "trust_level": "medium"
+    },
+
+    "notifications": {
+      "_design_note": "Cost alerts should fire autonomously. The whole point is to catch anomalies before the bill arrives.",
+      "autonomous": [
+        "publish_cost_alert",
+        "send_slack_notification",
+        "send_email_digest"
+      ],
+      "requires_approval": [
+        "create_sns_topic",
+        "subscribe_sns"
+      ],
+      "blocked": [
+        "delete_sns_topic",
+        "unsubscribe_all"
+      ],
+      "trust_level": "low"
+    }
+
+  },
+
+  "consent_decay": {
+    "enabled": true,
+    "review_interval_days": 60
+  },
+
+  "last_reviewed": null
+}

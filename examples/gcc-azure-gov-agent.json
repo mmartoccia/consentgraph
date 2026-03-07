@@ -1,0 +1,393 @@
+{
+  "_design_note": "GCC Azure Government cloud agent -- FedRAMP High authorization boundary. All actions are scoped to Azure Government endpoints (*.azure.us / *.microsoftonline.us). Commercial Azure endpoints are explicitly excluded. Review interval is 14 days given the sensitivity of the environment. IL4/IL5 scoping: this graph covers IL4 data workloads. IL5 workloads (classified national security systems) require a separate graph with tighter controls and no autonomous write actions.",
+
+  "metadata": {
+    "version": "0.2.0",
+    "description": "Azure Government cloud ops agent. FedRAMP High authorization boundary. IL4 scoped. Read-heavy; all writes and config changes require approval or are blocked.",
+    "owner": "gcc-azure-gov-agent",
+    "agent_id": "gcc-azure-gov-agent",
+    "created_at": "2026-03-07",
+    "updated_at": "2026-03-07",
+    "compliance_profile": "FedRAMP-High"
+  },
+
+  "boundary": {
+    "_design_note": "This agent operates exclusively within Azure Government (MAG). Commercial Azure endpoints (*.azure.com, *.microsoft.com management plane) are not in the allow-list. deny_cross_boundary=true means the runtime must refuse any action that resolves to a commercial endpoint.",
+    "allowed_tenants": [
+      "*.onmicrosoft.us"
+    ],
+    "allowed_endpoints": [
+      "*.azure.us",
+      "*.microsoftonline.us",
+      "*.usgovcloudapi.net",
+      "management.usgovcloudapi.net",
+      "login.microsoftonline.us"
+    ],
+    "deny_cross_boundary": true
+  },
+
+  "domains": {
+
+    "az_gov_compute": {
+      "_design_note": "VM and container reads are safe. Scaling operations are pre-approved for autoscale policies within defined thresholds. Termination and deallocate require explicit approval -- restart blast radius depends on workload. IL4: ensure VM extensions do not exfiltrate data to commercial endpoints.",
+      "autonomous": [
+        "list_virtual_machines",
+        "get_virtual_machine",
+        "get_instance_view",
+        "list_container_groups",
+        "describe_container_group",
+        "list_aks_clusters",
+        "describe_aks_node_pool",
+        "get_autoscale_settings",
+        "list_availability_sets"
+      ],
+      "requires_approval": [
+        "scale_out_vm_scale_set",
+        "scale_in_vm_scale_set",
+        "restart_virtual_machine",
+        "start_virtual_machine",
+        "stop_virtual_machine",
+        "resize_virtual_machine",
+        "scale_aks_node_pool",
+        "update_autoscale_policy"
+      ],
+      "blocked": [
+        "delete_virtual_machine",
+        "deallocate_virtual_machine",
+        "delete_aks_cluster",
+        "delete_container_group",
+        "capture_virtual_machine",
+        "generalize_virtual_machine"
+      ],
+      "trust_level": "medium",
+      "control_mappings": ["CM-7", "SC-5"],
+      "delegation_allowed": false
+    },
+
+    "az_gov_iam": {
+      "_design_note": "Entra ID (Azure AD Government) and RBAC are READ-ONLY for this agent. No role assignments, no group membership changes, no app registrations. IAM write access is the most common privilege escalation vector -- hard block with no exceptions. IL4/IL5: Guest account creation and cross-tenant federation changes are permanently blocked.",
+      "autonomous": [
+        "list_users",
+        "get_user",
+        "list_groups",
+        "get_group",
+        "list_group_members",
+        "list_role_assignments",
+        "get_role_definition",
+        "list_role_definitions",
+        "list_app_registrations",
+        "get_service_principal",
+        "list_conditional_access_policies",
+        "get_directory_audit_logs"
+      ],
+      "requires_approval": [],
+      "blocked": [
+        "create_user",
+        "delete_user",
+        "update_user",
+        "add_group_member",
+        "remove_group_member",
+        "create_group",
+        "delete_group",
+        "create_role_assignment",
+        "delete_role_assignment",
+        "create_app_registration",
+        "delete_app_registration",
+        "create_service_principal",
+        "delete_service_principal",
+        "set_conditional_access_policy",
+        "delete_conditional_access_policy",
+        "invite_guest_user",
+        "configure_cross_tenant_access",
+        "reset_user_password",
+        "revoke_user_sessions"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["AC-6", "AC-5", "IA-5"],
+      "delegation_allowed": false
+    },
+
+    "az_gov_keyvault": {
+      "_design_note": "Key Vault access is metadata-only. The agent may list vaults and inspect key/secret/certificate names and properties (not values). All read or export of secret material, private keys, or certificate private components is permanently blocked. IL4/IL5: Key Vault used for CMK (customer-managed keys) must never have its key material accessed by automated agents.",
+      "autonomous": [
+        "list_key_vaults",
+        "get_key_vault",
+        "list_keys",
+        "get_key_properties",
+        "list_secrets",
+        "get_secret_properties",
+        "list_certificates",
+        "get_certificate_properties",
+        "get_key_vault_access_policy",
+        "list_deleted_keys",
+        "list_deleted_secrets"
+      ],
+      "requires_approval": [],
+      "blocked": [
+        "get_secret_value",
+        "get_key_value",
+        "get_certificate_with_policy",
+        "backup_key",
+        "backup_secret",
+        "backup_certificate",
+        "restore_key",
+        "restore_secret",
+        "import_key",
+        "import_certificate",
+        "set_secret",
+        "create_key",
+        "delete_key",
+        "delete_secret",
+        "delete_certificate",
+        "purge_deleted_key",
+        "purge_deleted_secret",
+        "set_key_vault_access_policy",
+        "update_key_vault_network_rules"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["SC-28", "IA-5"],
+      "delegation_allowed": false
+    },
+
+    "az_gov_security": {
+      "_design_note": "Microsoft Defender for Cloud and Microsoft Sentinel. Reading security alerts, incidents, and recommendations is safe and required for the agent to do its job. Policy modifications and Defender configuration changes require human review -- a misconfigured security policy is worse than no policy. Deleting security data is permanently blocked. IL4: Sentinel workspace containing CUI/CDI data must not have data exported to non-GovCloud destinations.",
+      "autonomous": [
+        "list_security_alerts",
+        "get_security_alert",
+        "list_security_recommendations",
+        "get_secure_score",
+        "list_defender_assessments",
+        "get_regulatory_compliance_state",
+        "list_sentinel_incidents",
+        "get_sentinel_incident",
+        "list_sentinel_alerts",
+        "list_sentinel_hunting_queries",
+        "get_workspace_settings",
+        "list_threat_intelligence_indicators"
+      ],
+      "requires_approval": [
+        "update_security_contact",
+        "set_security_policy",
+        "enable_defender_plan",
+        "disable_defender_plan",
+        "create_sentinel_automation_rule",
+        "update_sentinel_automation_rule",
+        "run_sentinel_playbook"
+      ],
+      "blocked": [
+        "dismiss_security_alert",
+        "delete_sentinel_incident",
+        "delete_sentinel_alert",
+        "delete_log_analytics_workspace",
+        "purge_workspace_data",
+        "disable_sentinel",
+        "delete_threat_intelligence_indicator",
+        "delete_security_assessment"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["AU-2", "AU-12", "IR-6", "SI-7"],
+      "delegation_allowed": false
+    },
+
+    "az_gov_network": {
+      "_design_note": "NSGs, VNets, and Private Endpoints. Read-only autonomously -- network topology is essential context for all other ops. NSG rule modifications require approval because a single rule change can open or close access to CUI systems. Delete/disable of network infrastructure is permanently blocked. IL4: Private Endpoint configurations must not be modified to allow public routing.",
+      "autonomous": [
+        "list_virtual_networks",
+        "get_virtual_network",
+        "list_subnets",
+        "get_subnet",
+        "list_network_security_groups",
+        "get_network_security_group",
+        "list_nsg_rules",
+        "get_nsg_rule",
+        "list_private_endpoints",
+        "get_private_endpoint",
+        "list_route_tables",
+        "get_route_table",
+        "list_load_balancers",
+        "get_load_balancer",
+        "list_application_gateways",
+        "get_effective_route_table",
+        "get_effective_nsg"
+      ],
+      "requires_approval": [
+        "create_nsg_rule",
+        "update_nsg_rule",
+        "delete_nsg_rule",
+        "associate_nsg_to_subnet",
+        "update_route_table",
+        "create_private_endpoint",
+        "update_private_endpoint_connection",
+        "modify_subnet",
+        "update_load_balancer_rule"
+      ],
+      "blocked": [
+        "delete_virtual_network",
+        "delete_subnet",
+        "delete_network_security_group",
+        "delete_private_endpoint",
+        "delete_route_table",
+        "delete_load_balancer",
+        "delete_application_gateway",
+        "disable_ddos_protection",
+        "remove_private_dns_zone_link"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["AC-4", "SC-7", "SC-8"],
+      "delegation_allowed": false
+    },
+
+    "az_gov_policy": {
+      "_design_note": "Azure Policy and Blueprints. Reading policy definitions and compliance state is core to the agent's audit reporting function. Policy assignment is a governance action -- requires human approval. Policy deletion is permanently blocked; even a superseded policy should be disabled not deleted to preserve audit history.",
+      "autonomous": [
+        "list_policy_definitions",
+        "get_policy_definition",
+        "list_policy_set_definitions",
+        "get_policy_set_definition",
+        "list_policy_assignments",
+        "get_policy_assignment",
+        "get_compliance_summary",
+        "list_compliance_details",
+        "list_blueprints",
+        "get_blueprint",
+        "list_blueprint_assignments",
+        "get_policy_exemption"
+      ],
+      "requires_approval": [
+        "create_policy_assignment",
+        "update_policy_assignment",
+        "create_policy_exemption",
+        "update_policy_exemption",
+        "assign_blueprint",
+        "create_policy_definition",
+        "update_policy_definition"
+      ],
+      "blocked": [
+        "delete_policy_assignment",
+        "delete_policy_definition",
+        "delete_policy_set_definition",
+        "delete_policy_exemption",
+        "delete_blueprint",
+        "delete_blueprint_assignment"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["CM-7", "CM-6"],
+      "delegation_allowed": false
+    },
+
+    "az_gov_devops": {
+      "_design_note": "Azure DevOps Pipelines for GCC workloads. Build and test runs are safe to trigger autonomously -- they are read-only from an infrastructure perspective. Deployment to production requires explicit approval. Pipeline configuration changes and deletion are blocked -- treat as IaC governed by source control. IL4: Pipeline variables marked as secret must not be logged or transmitted to non-GovCloud endpoints.",
+      "autonomous": [
+        "list_pipelines",
+        "get_pipeline",
+        "list_pipeline_runs",
+        "get_pipeline_run",
+        "list_builds",
+        "get_build",
+        "get_build_logs",
+        "list_test_runs",
+        "get_test_results",
+        "trigger_build",
+        "trigger_test_pipeline",
+        "list_repositories",
+        "get_repository"
+      ],
+      "requires_approval": [
+        "trigger_deploy_to_staging",
+        "trigger_deploy_to_production",
+        "approve_pipeline_stage",
+        "retry_failed_deployment",
+        "update_pipeline_variables",
+        "queue_release"
+      ],
+      "blocked": [
+        "delete_pipeline",
+        "delete_build_definition",
+        "update_pipeline_definition",
+        "delete_repository",
+        "delete_build",
+        "modify_pipeline_permissions",
+        "delete_release_definition"
+      ],
+      "trust_level": "medium",
+      "control_mappings": ["CM-3", "SI-7"],
+      "delegation_allowed": false
+    },
+
+    "az_gov_storage": {
+      "_design_note": "Azure Blob, Queue, and Table storage. Read autonomously -- needed for compliance reporting and state reads. Write to non-CUI containers requires approval (log-grade data, reports). Write to CUI-tagged containers is permanently blocked for this agent -- CUI data writes must go through the DevOps pipeline with appropriate controls and logging. IL4/IL5: Storage accounts tagged CUI or CDI must enforce encryption at rest (CMK) and cannot be written to by automated agents without pipeline mediation.",
+      "autonomous": [
+        "list_storage_accounts",
+        "get_storage_account",
+        "list_containers",
+        "get_container_properties",
+        "list_blobs",
+        "get_blob_properties",
+        "read_blob",
+        "list_queues",
+        "list_tables",
+        "get_storage_account_metrics",
+        "get_storage_network_rules"
+      ],
+      "requires_approval": [
+        "write_blob_to_noncui_container",
+        "create_container",
+        "set_blob_metadata",
+        "update_queue_message",
+        "write_table_entity",
+        "set_storage_lifecycle_policy",
+        "generate_sas_token"
+      ],
+      "blocked": [
+        "write_blob_to_cui_container",
+        "write_to_cdi_storage",
+        "delete_blob",
+        "delete_container",
+        "delete_storage_account",
+        "set_storage_account_public_access",
+        "disable_secure_transfer",
+        "disable_storage_encryption",
+        "modify_storage_network_rules_to_allow_public"
+      ],
+      "trust_level": "medium",
+      "control_mappings": ["SC-28", "MP-6"],
+      "delegation_allowed": false
+    },
+
+    "notifications": {
+      "_design_note": "Alert routing to SecOps and GRC teams. Sending alerts autonomously is required for the agent to function as a monitoring tool. Modifying alert routing requires approval -- a misconfigured route could silence critical FedRAMP alerts. Disabling alerting is permanently blocked.",
+      "autonomous": [
+        "send_security_alert",
+        "send_compliance_notification",
+        "send_deployment_notification",
+        "send_cost_alert",
+        "send_policy_violation_alert",
+        "send_incident_summary"
+      ],
+      "requires_approval": [
+        "modify_alert_routing",
+        "add_notification_recipient",
+        "remove_notification_recipient",
+        "update_alert_thresholds",
+        "create_action_group"
+      ],
+      "blocked": [
+        "disable_alerting",
+        "delete_action_group",
+        "suppress_all_alerts",
+        "delete_alert_rule"
+      ],
+      "trust_level": "low",
+      "control_mappings": ["IR-6", "AU-6"],
+      "delegation_allowed": false
+    }
+
+  },
+
+  "consent_decay": {
+    "enabled": true,
+    "review_interval_days": 14
+  },
+
+  "last_reviewed": null
+}

@@ -1,0 +1,220 @@
+{
+  "metadata": {
+    "version": "0.1.0",
+    "description": "Consent graph for a Kubernetes operations agent. Autonomous for read and non-mutating ops. Deployments, scaling, and config changes require approval. RBAC and cluster-level destructive ops are blocked.",
+    "owner": "k8s-ops-agent",
+    "created_at": "2026-03-07",
+    "updated_at": "2026-03-07"
+  },
+
+  "domains": {
+
+    "workloads": {
+      "_design_note": "Reading workload state is the agent's primary job. Rollouts and scaling require approval -- both can take down a service. Deleting a deployment is blocked; use GitOps for teardown.",
+      "autonomous": [
+        "get_deployment",
+        "list_deployments",
+        "get_replicaset",
+        "list_pods",
+        "get_pod",
+        "describe_pod",
+        "get_pod_logs",
+        "get_statefulset",
+        "list_statefulsets",
+        "get_daemonset"
+      ],
+      "requires_approval": [
+        "patch_deployment",
+        "rollout_restart",
+        "scale_deployment",
+        "scale_statefulset",
+        "update_deployment_image",
+        "rollout_undo",
+        "cordon_node",
+        "uncordon_node",
+        "drain_node"
+      ],
+      "blocked": [
+        "delete_deployment",
+        "delete_statefulset",
+        "delete_daemonset",
+        "delete_pod",
+        "force_delete_pod"
+      ],
+      "trust_level": "high"
+    },
+
+    "services_and_networking": {
+      "_design_note": "Reading network config is safe. Patching services or ingress rules changes traffic routing -- requires approval. Ingress controller changes are blocked.",
+      "autonomous": [
+        "get_service",
+        "list_services",
+        "get_ingress",
+        "list_ingresses",
+        "get_endpoints",
+        "get_networkpolicy",
+        "list_networkpolicies"
+      ],
+      "requires_approval": [
+        "patch_service",
+        "patch_ingress",
+        "create_service",
+        "create_ingress",
+        "update_networkpolicy"
+      ],
+      "blocked": [
+        "delete_service",
+        "delete_ingress",
+        "delete_networkpolicy",
+        "patch_ingress_controller"
+      ],
+      "trust_level": "high"
+    },
+
+    "config_and_secrets": {
+      "_design_note": "Agent can read ConfigMaps to understand app state. Secrets are read-only for auditing. Writing or deleting secrets is blocked -- secret rotation goes through a dedicated workflow.",
+      "autonomous": [
+        "get_configmap",
+        "list_configmaps",
+        "get_secret_metadata",
+        "list_secrets"
+      ],
+      "requires_approval": [
+        "patch_configmap",
+        "create_configmap",
+        "annotate_resource"
+      ],
+      "blocked": [
+        "get_secret_data",
+        "create_secret",
+        "patch_secret",
+        "delete_secret",
+        "delete_configmap"
+      ],
+      "trust_level": "low"
+    },
+
+    "storage": {
+      "_design_note": "PVCs and storage classes are read-only. Binding, expanding, or deleting persistent volumes can cause data loss -- blocked for this agent.",
+      "autonomous": [
+        "get_persistentvolumeclaim",
+        "list_persistentvolumeclaims",
+        "get_persistentvolume",
+        "list_storageclasses"
+      ],
+      "requires_approval": [
+        "patch_persistentvolumeclaim",
+        "expand_volume"
+      ],
+      "blocked": [
+        "delete_persistentvolumeclaim",
+        "delete_persistentvolume",
+        "create_persistentvolume"
+      ],
+      "trust_level": "high"
+    },
+
+    "rbac": {
+      "_design_note": "RBAC is strictly read-only. This agent must not be able to grant or modify its own permissions or anyone else's. Privilege escalation is the core threat model.",
+      "autonomous": [
+        "get_role",
+        "list_roles",
+        "get_clusterrole",
+        "list_clusterroles",
+        "get_rolebinding",
+        "list_rolebindings"
+      ],
+      "requires_approval": [],
+      "blocked": [
+        "create_role",
+        "patch_role",
+        "delete_role",
+        "create_clusterrole",
+        "patch_clusterrole",
+        "delete_clusterrole",
+        "create_rolebinding",
+        "patch_rolebinding",
+        "delete_rolebinding",
+        "create_clusterrolebinding",
+        "delete_clusterrolebinding"
+      ],
+      "trust_level": "low"
+    },
+
+    "namespaces_and_nodes": {
+      "_design_note": "Namespace and node reads are safe for cluster health monitoring. Creating namespaces or tainting nodes are infra-level decisions that require approval.",
+      "autonomous": [
+        "list_namespaces",
+        "get_namespace",
+        "list_nodes",
+        "get_node",
+        "describe_node",
+        "get_node_metrics",
+        "list_events"
+      ],
+      "requires_approval": [
+        "create_namespace",
+        "taint_node",
+        "label_node",
+        "annotate_node"
+      ],
+      "blocked": [
+        "delete_namespace",
+        "delete_node",
+        "patch_node_spec"
+      ],
+      "trust_level": "high"
+    },
+
+    "observability": {
+      "_design_note": "Metrics, logs, and events are the agent's eyes. All read autonomously. Creating alerts requires approval -- a noisy alert setup is almost as bad as none.",
+      "autonomous": [
+        "get_pod_logs",
+        "stream_pod_logs",
+        "query_prometheus",
+        "list_events",
+        "get_horizontal_pod_autoscaler",
+        "get_pod_metrics",
+        "get_node_metrics"
+      ],
+      "requires_approval": [
+        "create_prometheus_alert_rule",
+        "patch_horizontal_pod_autoscaler",
+        "create_pdb"
+      ],
+      "blocked": [
+        "delete_prometheus_alert_rule",
+        "delete_horizontal_pod_autoscaler",
+        "delete_pdb"
+      ],
+      "trust_level": "medium"
+    },
+
+    "notifications": {
+      "_design_note": "Ops incidents need fast alerting -- autonomous. PagerDuty escalation is a high-signal action, approve before wiring to prod on-call.",
+      "autonomous": [
+        "send_slack_alert",
+        "publish_sns_event",
+        "send_ops_digest"
+      ],
+      "requires_approval": [
+        "create_pagerduty_incident",
+        "escalate_incident"
+      ],
+      "blocked": [
+        "silence_all_alerts",
+        "delete_alert_channel",
+        "unsubscribe_on_call"
+      ],
+      "trust_level": "medium"
+    }
+
+  },
+
+  "consent_decay": {
+    "enabled": true,
+    "review_interval_days": 90
+  },
+
+  "last_reviewed": null
+}

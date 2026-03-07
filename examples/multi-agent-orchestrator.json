@@ -1,0 +1,96 @@
+{
+  "_design_note": "Orchestrator agent for a cloud ops team. This agent does NOT take direct infrastructure actions. Its role is to read state, coordinate, and delegate to specialist sub-agents. Each sub-agent has its own consent graph that governs what it can actually do. The orchestrator's direct action surface is intentionally narrow.",
+
+  "metadata": {
+    "version": "0.2.0",
+    "description": "Cloud ops orchestrator. Reads infra state and delegates to specialist agents. No direct destructive capability.",
+    "owner": "cloud-ops-orchestrator",
+    "agent_id": "cloud-ops-orchestrator",
+    "created_at": "2026-03-07",
+    "updated_at": "2026-03-07",
+    "compliance_profile": "commercial"
+  },
+
+  "domains": {
+
+    "infra_state": {
+      "_design_note": "Read-only access to aggregate infrastructure state. Safe to do autonomously -- this is how the orchestrator decides what to delegate.",
+      "autonomous": [
+        "describe_cluster_summary",
+        "get_deployment_status",
+        "list_running_services",
+        "get_cost_summary",
+        "get_security_posture_summary",
+        "list_active_alerts"
+      ],
+      "requires_approval": [],
+      "blocked": [
+        "modify_infra",
+        "delete_resource",
+        "terminate_instance",
+        "drop_database",
+        "purge_logs"
+      ],
+      "trust_level": "medium",
+      "delegation_allowed": false
+    },
+
+    "notifications": {
+      "_design_note": "Orchestrator sends status updates and escalations autonomously. No channel management -- that's human-owned config.",
+      "autonomous": [
+        "send_status_update",
+        "send_alert",
+        "send_deployment_summary",
+        "send_cost_report",
+        "send_security_digest"
+      ],
+      "requires_approval": [
+        "create_incident",
+        "page_on_call_engineer"
+      ],
+      "blocked": [
+        "delete_alert_channel",
+        "silence_all_alerts",
+        "modify_escalation_policy"
+      ],
+      "trust_level": "low",
+      "delegation_allowed": false
+    }
+
+  },
+
+  "delegation": {
+    "_design_note": "This is the orchestrator's delegation manifest. Each trusted_agent entry defines a specialist sub-agent and the domains the orchestrator may invoke on its behalf. max_delegation_depth=1 prevents chain delegation: the orchestrator can delegate to sub-agents, but sub-agents cannot re-delegate further.",
+    "trusted_agents": [
+      {
+        "_design_note": "ECS deployment agent handles all production deployment ops. Requires human approval before the orchestrator can invoke any ECS deployment action -- high blast radius.",
+        "agent_id": "deployment-agent",
+        "graph_path": "examples/aws-ecs-deployment-agent.json",
+        "domains_allowed": ["ecs", "ecr", "s3"],
+        "requires_approval": true
+      },
+      {
+        "_design_note": "Cost optimizer agent. Read and recommend actions are safe to delegate autonomously. The agent's own graph governs what it can execute.",
+        "agent_id": "cost-agent",
+        "graph_path": "examples/aws-cost-optimizer-agent.json",
+        "domains_allowed": ["cost_explorer", "trusted_advisor", "compute_optimizer"],
+        "requires_approval": false
+      },
+      {
+        "_design_note": "Security scanner initiates scans autonomously. It cannot modify findings or policies -- its own graph enforces that. Orchestrator delegates scan initiation without human gate.",
+        "agent_id": "security-scanner-agent",
+        "graph_path": "examples/security-scanner-agent.json",
+        "domains_allowed": ["inspector", "guardduty", "security_hub"],
+        "requires_approval": false
+      }
+    ],
+    "max_delegation_depth": 1
+  },
+
+  "consent_decay": {
+    "enabled": true,
+    "review_interval_days": 30
+  },
+
+  "last_reviewed": null
+}

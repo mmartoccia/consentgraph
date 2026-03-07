@@ -1,0 +1,230 @@
+{
+  "metadata": {
+    "version": "0.1.0",
+    "description": "Consent graph for an ECS deployment agent. Autonomous for reads and non-destructive ops; approval required for deployments and scaling; IAM and account-level changes are blocked.",
+    "owner": "ecs-deploy-agent",
+    "created_at": "2026-03-07",
+    "updated_at": "2026-03-07"
+  },
+
+  "domains": {
+
+    "ecs": {
+      "_design_note": "Reading cluster state is safe. Deployments and scaling change production; require approval. Service deletion is blocked -- use infra-as-code for teardown.",
+      "autonomous": [
+        "describe_clusters",
+        "describe_services",
+        "describe_tasks",
+        "list_tasks",
+        "describe_task_definition",
+        "list_task_definitions"
+      ],
+      "requires_approval": [
+        "update_service",
+        "register_task_definition",
+        "run_task",
+        "stop_task",
+        "create_service",
+        "update_service_desired_count",
+        "put_scaling_policy"
+      ],
+      "blocked": [
+        "delete_service",
+        "delete_cluster",
+        "deregister_task_definition",
+        "delete_task_definitions"
+      ],
+      "trust_level": "high"
+    },
+
+    "ecr": {
+      "_design_note": "Pulling and inspecting images is safe. Pushing is part of the deployment pipeline -- log but allow at high confidence. Deleting images or repos is blocked.",
+      "autonomous": [
+        "describe_repositories",
+        "describe_images",
+        "list_images",
+        "get_authorization_token",
+        "batch_get_image"
+      ],
+      "requires_approval": [
+        "put_image",
+        "initiate_layer_upload",
+        "complete_layer_upload",
+        "create_repository"
+      ],
+      "blocked": [
+        "batch_delete_image",
+        "delete_repository",
+        "delete_lifecycle_policy",
+        "set_repository_policy"
+      ],
+      "trust_level": "medium"
+    },
+
+    "cloudwatch": {
+      "_design_note": "Metrics and logs are read-only. Alarms can be silenced accidentally -- require approval. Deleting log groups loses data permanently.",
+      "autonomous": [
+        "get_metric_statistics",
+        "list_metrics",
+        "describe_alarms",
+        "get_log_events",
+        "describe_log_groups",
+        "describe_log_streams",
+        "filter_log_events"
+      ],
+      "requires_approval": [
+        "put_metric_alarm",
+        "disable_alarm_actions",
+        "enable_alarm_actions",
+        "put_dashboard",
+        "create_log_group"
+      ],
+      "blocked": [
+        "delete_alarms",
+        "delete_log_group",
+        "delete_log_stream",
+        "delete_dashboards"
+      ],
+      "trust_level": "medium"
+    },
+
+    "ec2": {
+      "_design_note": "Describe ops are safe. Instance restarts are pipeline-adjacent but need a human confirming the blast radius. Termination is always blocked -- use ASG lifecycle or IaC.",
+      "autonomous": [
+        "describe_instances",
+        "describe_instance_status",
+        "describe_security_groups",
+        "describe_subnets",
+        "describe_vpcs",
+        "describe_load_balancers",
+        "describe_target_groups",
+        "describe_target_health"
+      ],
+      "requires_approval": [
+        "reboot_instances",
+        "start_instances",
+        "stop_instances",
+        "register_targets",
+        "deregister_targets",
+        "modify_instance_attribute"
+      ],
+      "blocked": [
+        "terminate_instances",
+        "delete_security_group",
+        "delete_subnet",
+        "modify_vpc_attribute",
+        "authorize_security_group_ingress",
+        "revoke_security_group_ingress"
+      ],
+      "trust_level": "high"
+    },
+
+    "rds": {
+      "_design_note": "Read ops only. Database restarts and failovers are high-blast-radius and require explicit approval. Deletion and snapshot purge are permanently blocked for this agent.",
+      "autonomous": [
+        "describe_db_instances",
+        "describe_db_clusters",
+        "describe_db_snapshots",
+        "describe_events",
+        "describe_db_parameters",
+        "list_tags_for_resource"
+      ],
+      "requires_approval": [
+        "reboot_db_instance",
+        "failover_db_cluster",
+        "modify_db_instance",
+        "create_db_snapshot",
+        "restore_db_instance_from_snapshot"
+      ],
+      "blocked": [
+        "delete_db_instance",
+        "delete_db_cluster",
+        "delete_db_snapshot",
+        "modify_db_cluster",
+        "reset_db_cluster_parameter_group"
+      ],
+      "trust_level": "high"
+    },
+
+    "s3": {
+      "_design_note": "Listing and reading deployment artifacts is safe. Writing to artifact buckets is part of the CI pipeline. Deleting objects or buckets is blocked -- use lifecycle policies instead.",
+      "autonomous": [
+        "list_buckets",
+        "list_objects",
+        "get_object",
+        "head_object",
+        "get_bucket_location",
+        "get_bucket_tagging"
+      ],
+      "requires_approval": [
+        "put_object",
+        "copy_object",
+        "create_multipart_upload",
+        "complete_multipart_upload"
+      ],
+      "blocked": [
+        "delete_object",
+        "delete_objects",
+        "delete_bucket",
+        "put_bucket_policy",
+        "put_bucket_acl",
+        "put_public_access_block"
+      ],
+      "trust_level": "medium"
+    },
+
+    "iam": {
+      "_design_note": "IAM is read-only for this agent. No role or policy changes, ever. Privilege escalation is the most common agent exploit vector -- lock this down hard.",
+      "autonomous": [
+        "get_role",
+        "list_roles",
+        "get_policy",
+        "list_policies",
+        "list_attached_role_policies",
+        "simulate_principal_policy"
+      ],
+      "requires_approval": [],
+      "blocked": [
+        "create_role",
+        "delete_role",
+        "attach_role_policy",
+        "detach_role_policy",
+        "put_role_policy",
+        "delete_role_policy",
+        "create_policy",
+        "delete_policy",
+        "create_access_key",
+        "delete_access_key",
+        "update_assume_role_policy",
+        "pass_role"
+      ],
+      "trust_level": "low"
+    },
+
+    "notifications": {
+      "_design_note": "Agent should be able to send deployment status notifications autonomously. No channel creation or deletion.",
+      "autonomous": [
+        "publish_sns",
+        "send_slack_notification",
+        "send_pagerduty_event"
+      ],
+      "requires_approval": [
+        "create_sns_topic",
+        "subscribe_sns"
+      ],
+      "blocked": [
+        "delete_sns_topic",
+        "unsubscribe_all"
+      ],
+      "trust_level": "medium"
+    }
+
+  },
+
+  "consent_decay": {
+    "enabled": true,
+    "review_interval_days": 90
+  },
+
+  "last_reviewed": null
+}

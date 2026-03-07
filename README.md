@@ -240,6 +240,44 @@ For regulated industries, this pattern maps directly onto existing control frame
 
 ---
 
+## Examples
+
+| File | Description |
+|------|-------------|
+| [`examples/consent-graph.example.json`](examples/consent-graph.example.json) | Full 5-domain starter example with design rationale notes |
+| [`examples/aws-ecs-deployment-agent.json`](examples/aws-ecs-deployment-agent.json) | AWS ECS deployment agent (ECS, ECR, CloudWatch, EC2, RDS, S3, IAM) |
+| [`examples/aws-cost-optimizer-agent.json`](examples/aws-cost-optimizer-agent.json) | AWS cost optimization agent (Cost Explorer, Trusted Advisor, Compute Optimizer) |
+| [`examples/k8s-ops-agent.json`](examples/k8s-ops-agent.json) | Kubernetes ops agent (namespaces, deployments, services, RBAC) |
+| [`examples/multi-agent-orchestrator.json`](examples/multi-agent-orchestrator.json) | Cloud ops orchestrator that delegates to specialist sub-agents (v0.2) |
+| [`examples/gcc-azure-gov-agent.json`](examples/gcc-azure-gov-agent.json) | Azure Government cloud agent -- FedRAMP High, IL4 scoped, 9 domains (v0.2) |
+| [`examples/cmmc-l3-devops-agent.json`](examples/cmmc-l3-devops-agent.json) | CMMC Level 3 DevOps pipeline agent -- NIST 800-171/172 control mappings (v0.2) |
+
+### Multi-Agent Composition
+
+In complex deployments, a single agent with broad permissions is a liability. ConsentGraph v0.2 supports an orchestrator pattern: a narrow orchestrator agent reads state and delegates to specialist sub-agents, each governed by their own consent graph. The orchestrator's `delegation` block declares which agents it trusts, which domains it may invoke on their behalf, and whether each delegation requires human approval. `max_delegation_depth: 1` prevents chain delegation (orchestrator → sub-agent → sub-sub-agent), which would create audit-trail gaps.
+
+```json
+"delegation": {
+  "trusted_agents": [
+    {
+      "agent_id": "deployment-agent",
+      "graph_path": "examples/aws-ecs-deployment-agent.json",
+      "domains_allowed": ["ecs", "ecr"],
+      "requires_approval": true
+    }
+  ],
+  "max_delegation_depth": 1
+}
+```
+
+See [`examples/multi-agent-orchestrator.json`](examples/multi-agent-orchestrator.json) for a full cloud ops orchestrator delegating to deployment, cost, and security scanner sub-agents.
+
+### Compliance Profiles
+
+The `compliance_profile` field in metadata names the framework the graph was authored against (e.g. `"FedRAMP-High"`, `"CMMC-L3"`, `"SOC2-Type2"`). Each domain's `control_mappings` field lists the NIST 800-53 or 800-171 control families that informed its autonomous/requires_approval/blocked split (e.g. `["AC-6", "CM-7", "AU-2"]`). These fields are informational -- the runtime ignores them -- but they give compliance auditors a direct line from agent behavior to the specific controls that justify it. For regulated deployments, the consent graph becomes a machine-readable policy artifact that your AO, ISSO, or auditor can review without reading agent code.
+
+---
+
 ## Project Status
 
 v0.1.0 -- production logic extracted and packaged. API is stable. MCP server is functional. Breaking changes will be versioned.
@@ -248,6 +286,8 @@ v0.1.0 -- production logic extracted and packaged. API is stable. MCP server is 
 - Async support for `check_consent`
 - Time-window constraints (e.g., "only during business hours")
 - Graph inheritance (base + environment overrides)
+- Multi-agent delegation (orchestrator → sub-agent consent chains)
+- Compliance profiles (FedRAMP, CMMC, SOC2 overlays)
 - Web UI for graph editing
 
 Contributions welcome.

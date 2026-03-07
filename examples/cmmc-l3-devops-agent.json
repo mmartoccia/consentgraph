@@ -1,0 +1,323 @@
+{
+  "_design_note": "CMMC Level 3 DevOps agent for a defense contractor environment. Scoped to the software delivery pipeline: source control through artifact delivery. CMMC-L3 includes all 110 NIST SP 800-171 practices plus a subset of NIST SP 800-172 enhanced practices for high-value assets. This graph maps domain controls to NIST 800-171 Rev 2 and 800-172 where applicable. Review interval is 7 days -- CMMC requires continuous monitoring and rapid response to configuration changes. CUI handling note: this agent must never read, log, or transmit CUI data values. It operates on pipeline infrastructure metadata only.",
+
+  "metadata": {
+    "version": "0.2.0",
+    "description": "CMMC Level 3 DevOps pipeline agent. Covers source control, CI/CD, artifact management, secrets, network, endpoint, audit, and notifications. No CUI data access.",
+    "owner": "cmmc-l3-devops-agent",
+    "agent_id": "cmmc-l3-devops-agent",
+    "created_at": "2026-03-07",
+    "updated_at": "2026-03-07",
+    "compliance_profile": "CMMC-L3"
+  },
+
+  "domains": {
+
+    "source_control": {
+      "_design_note": "Git repositories containing CUI-adjacent source code. Read and clone are safe -- agents need code context to do their job. Push to feature branches requires approval because even non-main branches may trigger CI pipelines that handle CUI. Push to main/prod/release branches is permanently blocked -- that gate is owned by human code reviewers and automated CI policy. NIST 800-172 note: E3.1.1 requires additional access controls for high-value assets; treat main branch as HVA.",
+      "autonomous": [
+        "git_clone",
+        "git_fetch",
+        "git_pull",
+        "list_branches",
+        "get_branch",
+        "list_commits",
+        "get_commit",
+        "list_pull_requests",
+        "get_pull_request",
+        "list_tags",
+        "get_file_content",
+        "list_repository_files",
+        "get_diff",
+        "list_webhooks"
+      ],
+      "requires_approval": [
+        "git_push_feature_branch",
+        "create_pull_request",
+        "update_pull_request",
+        "create_branch",
+        "delete_branch",
+        "create_webhook",
+        "update_webhook"
+      ],
+      "blocked": [
+        "git_push_main",
+        "git_push_prod",
+        "git_push_release",
+        "git_force_push",
+        "delete_repository",
+        "make_repository_public",
+        "delete_webhook",
+        "archive_repository",
+        "transfer_repository"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["CM-3", "SI-7"],
+      "delegation_allowed": false
+    },
+
+    "ci_cd_pipeline": {
+      "_design_note": "Build and test automation. Triggering builds and test suites is autonomous -- this is the agent's primary function and has no production impact. Deploy to staging requires approval because staging may handle CUI mock data. Deploy to production always requires human approval -- production is the authorization boundary for CUI. Pipeline configuration changes are blocked; treat pipeline-as-code, governed via source_control domain. NIST 800-172 note: E3.12.1 requires enhanced controls for software supply chain; pipeline config must be version-controlled and change-reviewed.",
+      "autonomous": [
+        "trigger_build",
+        "trigger_unit_tests",
+        "trigger_integration_tests",
+        "trigger_sast_scan",
+        "trigger_sca_scan",
+        "trigger_container_image_build",
+        "get_build_status",
+        "get_build_logs",
+        "list_pipeline_runs",
+        "get_pipeline_run",
+        "list_test_results",
+        "get_test_result",
+        "get_code_coverage_report",
+        "get_vulnerability_scan_results"
+      ],
+      "requires_approval": [
+        "trigger_deploy_to_staging",
+        "trigger_smoke_tests_staging",
+        "promote_artifact_to_staging",
+        "retry_failed_stage",
+        "skip_pipeline_gate",
+        "override_quality_gate"
+      ],
+      "blocked": [
+        "trigger_deploy_to_production",
+        "trigger_deploy_to_prod",
+        "update_pipeline_definition",
+        "delete_pipeline",
+        "update_pipeline_secrets",
+        "disable_pipeline_security_scan",
+        "disable_quality_gate",
+        "modify_branch_protection_rules",
+        "delete_pipeline_run"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["CM-3", "SA-10", "SI-7"],
+      "delegation_allowed": false
+    },
+
+    "artifact_registry": {
+      "_design_note": "Container image and package artifact repository. Pull and list are autonomous -- agents need access to images to run builds and scans. Pushing signed artifacts requires approval because it changes the authoritative artifact set downstream pipelines will consume. Unsigned artifact push is permanently blocked -- CMMC L3 requires software supply chain integrity; all published artifacts must be signed and traceable. Deletion is blocked; use artifact retention policies instead. NIST 800-172 note: E3.12.2 requires provenance tracking for all software components.",
+      "autonomous": [
+        "list_repositories",
+        "get_repository",
+        "list_artifacts",
+        "get_artifact",
+        "pull_image",
+        "list_tags",
+        "get_tag",
+        "get_artifact_metadata",
+        "get_vulnerability_report",
+        "list_sbom"
+      ],
+      "requires_approval": [
+        "push_signed_image",
+        "push_signed_package",
+        "create_repository",
+        "update_repository_access_policy",
+        "attach_sbom",
+        "attach_attestation"
+      ],
+      "blocked": [
+        "push_unsigned_image",
+        "push_unsigned_package",
+        "delete_artifact",
+        "delete_repository",
+        "delete_tag",
+        "make_repository_public",
+        "disable_vulnerability_scanning",
+        "disable_image_signing"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["SR-3", "SI-7", "CM-7"],
+      "delegation_allowed": false
+    },
+
+    "secrets_vault": {
+      "_design_note": "HashiCorp Vault, AWS Secrets Manager, or Azure Key Vault used for pipeline secrets. Listing secret names and metadata is autonomous -- needed to verify secret presence and rotation status for compliance checks. Reading secret values is permanently blocked: an automated agent must never have access to CUI-adjacent credentials in plaintext. The pipeline runtime fetches secrets at execution time via its own scoped identity; this agent never needs the values. Create/rotate/delete are also blocked -- secret lifecycle is a human + break-glass process. NIST 800-172 note: E3.13.1 requires additional protection for CUI in high-value environments; secrets are treated as HVA data.",
+      "autonomous": [
+        "list_secrets",
+        "get_secret_metadata",
+        "get_secret_version_info",
+        "list_secret_rotation_status",
+        "get_vault_audit_log",
+        "list_vault_policies",
+        "get_vault_policy",
+        "check_secret_expiry"
+      ],
+      "requires_approval": [],
+      "blocked": [
+        "get_secret_value",
+        "read_secret_plaintext",
+        "create_secret",
+        "update_secret",
+        "rotate_secret",
+        "delete_secret",
+        "create_vault_token",
+        "revoke_vault_token",
+        "update_vault_policy",
+        "delete_vault_policy",
+        "unseal_vault",
+        "seal_vault",
+        "enable_vault_auth_method",
+        "disable_vault_auth_method"
+      ],
+      "trust_level": "critical",
+      "control_mappings": ["IA-5", "SC-28", "AC-6"],
+      "delegation_allowed": false
+    },
+
+    "network_config": {
+      "_design_note": "Firewall rules, NSGs, and network security configuration. Reading rules autonomously is required for network topology awareness and compliance checks. Modifying rules requires approval -- a single firewall rule change can expose or isolate CUI systems. Disabling TLS or encryption is permanently blocked; CMMC L3 requires all CUI in transit to be encrypted (FIPS 140-2 validated). NIST 800-172 note: E3.13.2 requires enhanced boundary protections for high-value assets.",
+      "autonomous": [
+        "list_firewall_rules",
+        "get_firewall_rule",
+        "list_network_security_groups",
+        "get_nsg",
+        "list_nsg_rules",
+        "get_nsg_rule",
+        "list_network_policies",
+        "get_network_policy",
+        "get_tls_configuration",
+        "list_certificates",
+        "get_certificate_expiry",
+        "get_network_topology",
+        "list_vpn_connections",
+        "get_vpn_status"
+      ],
+      "requires_approval": [
+        "create_firewall_rule",
+        "update_firewall_rule",
+        "delete_firewall_rule",
+        "create_nsg_rule",
+        "update_nsg_rule",
+        "delete_nsg_rule",
+        "update_network_policy",
+        "open_inbound_port",
+        "modify_vpn_configuration"
+      ],
+      "blocked": [
+        "disable_tls",
+        "downgrade_tls_version",
+        "disable_fips_mode",
+        "allow_unencrypted_traffic",
+        "disable_network_encryption",
+        "open_public_rdp",
+        "open_public_ssh",
+        "remove_network_segmentation"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["AC-4", "SC-7", "SC-8"],
+      "delegation_allowed": false
+    },
+
+    "endpoint_management": {
+      "_design_note": "Endpoint detection, response, and patch management (e.g., CrowdStrike, Microsoft Defender, MECM/SCCM). Reading device posture is autonomous -- required for continuous monitoring per CMMC. Patch deployment requires approval because patches can cause service interruptions that affect CUI availability. Disabling endpoint protection is permanently blocked -- endpoint security is a CMMC requirement and cannot be bypassed by automated processes.",
+      "autonomous": [
+        "list_managed_devices",
+        "get_device_posture",
+        "get_compliance_status",
+        "list_installed_software",
+        "get_patch_status",
+        "list_vulnerabilities",
+        "get_edr_alerts",
+        "get_device_health",
+        "list_non_compliant_devices",
+        "get_software_inventory"
+      ],
+      "requires_approval": [
+        "deploy_patch",
+        "trigger_vulnerability_remediation",
+        "isolate_device",
+        "unisolate_device",
+        "run_live_response_script",
+        "update_edr_policy"
+      ],
+      "blocked": [
+        "disable_endpoint_protection",
+        "uninstall_edr_agent",
+        "disable_tamper_protection",
+        "exclude_path_from_scanning",
+        "disable_real_time_protection",
+        "delete_device_from_management"
+      ],
+      "trust_level": "medium",
+      "control_mappings": ["SI-2", "SI-3"],
+      "delegation_allowed": false
+    },
+
+    "audit_logs": {
+      "_design_note": "Audit log access for System Security Plan (SSP) evidence generation and continuous monitoring. Read and export of logs is autonomous -- this is the agent's primary compliance reporting function. CMMC L3 requires audit logs to be protected from modification and deletion; this agent enforces that by making all retention and deletion actions permanently blocked. Modifying retention policies is blocked because CMMC mandates minimum retention periods. NIST 800-172 note: E3.3.1 requires enhanced audit review capabilities; automated log analysis supports this without requiring write access.",
+      "autonomous": [
+        "list_audit_logs",
+        "get_audit_log",
+        "query_audit_logs",
+        "export_audit_logs_for_ssp",
+        "generate_compliance_report",
+        "list_log_sources",
+        "get_log_source_status",
+        "search_security_events",
+        "get_failed_login_summary",
+        "get_privileged_action_log",
+        "get_data_access_log",
+        "get_change_management_log"
+      ],
+      "requires_approval": [],
+      "blocked": [
+        "delete_audit_log",
+        "clear_audit_log",
+        "modify_retention_policy",
+        "shorten_retention_period",
+        "disable_audit_logging",
+        "disable_log_source",
+        "purge_log_data",
+        "modify_log_integrity_settings",
+        "delete_log_archive"
+      ],
+      "trust_level": "critical",
+      "control_mappings": ["AU-2", "AU-9", "AU-11"],
+      "delegation_allowed": false
+    },
+
+    "notifications": {
+      "_design_note": "Alerting for anomalies, compliance violations, and pipeline events. Sending alerts autonomously is the agent's core output mechanism. Escalating an incident (e.g., paging the ISSO or ISSM) requires approval -- human judgment on severity is required before escalation. Silencing all alerts is permanently blocked; CMMC requires continuous monitoring and alert visibility.",
+      "autonomous": [
+        "send_anomaly_alert",
+        "send_compliance_violation_alert",
+        "send_pipeline_failure_alert",
+        "send_patch_status_report",
+        "send_vulnerability_digest",
+        "send_audit_summary",
+        "send_device_compliance_alert",
+        "send_secret_expiry_warning"
+      ],
+      "requires_approval": [
+        "escalate_to_isso",
+        "escalate_to_issm",
+        "open_security_incident",
+        "notify_ao",
+        "send_cyber_incident_report"
+      ],
+      "blocked": [
+        "silence_all_alerts",
+        "disable_alert_channel",
+        "delete_alert_rule",
+        "suppress_compliance_alerts",
+        "suppress_security_alerts"
+      ],
+      "trust_level": "low",
+      "control_mappings": ["IR-6"],
+      "delegation_allowed": false
+    }
+
+  },
+
+  "consent_decay": {
+    "enabled": true,
+    "review_interval_days": 7
+  },
+
+  "last_reviewed": null
+}

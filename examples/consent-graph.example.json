@@ -1,7 +1,7 @@
 {
   "metadata": {
     "version": "0.1.0",
-    "description": "Example Aegis consent graph -- 5 realistic domains",
+    "description": "Example ConsentGraph -- 5 realistic personal assistant domains",
     "owner": "your-agent-name",
     "created_at": "2025-01-01",
     "updated_at": "2025-01-01"
