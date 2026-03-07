@@ -1,0 +1,43 @@
+{
+  "serverInfo": {
+    "name": "ConsentGraph",
+    "version": "0.1.0",
+    "description": "Least-privilege policy enforcement for AI agents. Define SILENT/VISIBLE/FORCED/BLOCKED action tiers in a JSON file."
+  },
+  "authentication": {
+    "required": false
+  },
+  "tools": [
+    {
+      "name": "check_consent",
+      "description": "Check whether an action is permitted under the current consent graph. Returns tier: SILENT, VISIBLE, FORCED, or BLOCKED.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "domain": { "type": "string", "description": "The domain category (e.g. filesystem, email, cloud)" },
+          "action": { "type": "string", "description": "The specific action to check (e.g. read_file, send_email)" }
+        },
+        "required": ["domain", "action"]
+      }
+    },
+    {
+      "name": "load_graph",
+      "description": "Load a consent graph from a JSON file path.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Path to the consent-graph.json file" }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "name": "list_domains",
+      "description": "List all domains and their action tiers defined in the loaded consent graph.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
