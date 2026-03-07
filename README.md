@@ -230,6 +230,8 @@ consentgraph overrides
 
 ---
 
+![ConsentGraph demo](docs/demo.gif)
+
 ## Why This Matters
 
 Enterprise and government deployments of AI agents face a common failure mode: the authorization boundary is implicit, embedded in prompts or agent code, invisible to auditors, and impossible to update without a code deploy. When something goes wrong -- and it will -- there's no audit trail and no clear policy to point to.
