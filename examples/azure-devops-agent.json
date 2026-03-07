@@ -1,0 +1,348 @@
+{
+  "metadata": {
+    "version": "0.2.0",
+    "description": "Consent graph for an Azure DevOps agent managing cloud deployment and operations workflows in 2026. Autonomous for reads, observability, and non-destructive ops; approval required for deployments, scaling, and IaC applies; identity and secret mutations are permanently blocked.",
+    "owner": "azure-devops-agent",
+    "agent_id": "azure-devops-agent",
+    "compliance_profile": "commercial",
+    "created_at": "2026-03-07",
+    "updated_at": "2026-03-07"
+  },
+
+  "domains": {
+
+    "entra_id": {
+      "_design_note": "Identity plane is read-only without exception. An agent that can modify Entra ID can escalate its own privileges, create backdoor service principals, or grant itself access to any resource in the tenant. List/read is sufficient for troubleshooting and compliance queries. All write operations are permanently blocked -- even 'benign' ones like adding an app tag.",
+      "autonomous": [
+        "list_users",
+        "get_user",
+        "list_groups",
+        "get_group",
+        "list_group_members",
+        "list_service_principals",
+        "get_service_principal",
+        "list_app_registrations",
+        "get_app_registration",
+        "list_directory_roles",
+        "get_sign_in_logs",
+        "list_conditional_access_policies"
+      ],
+      "requires_approval": [],
+      "blocked": [
+        "create_user",
+        "delete_user",
+        "assign_role",
+        "remove_role",
+        "create_app_registration",
+        "delete_app_registration",
+        "create_service_principal",
+        "delete_service_principal",
+        "add_group_member",
+        "remove_group_member",
+        "create_conditional_access_policy",
+        "update_conditional_access_policy",
+        "delete_conditional_access_policy",
+        "reset_user_password",
+        "grant_oauth2_permission",
+        "add_app_role_assignment"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["AC-2", "AC-3", "AC-6", "IA-4", "IA-5"],
+      "delegation_allowed": false
+    },
+
+    "aks": {
+      "_design_note": "Kubernetes cluster reads are always safe -- the agent needs full visibility to diagnose issues. Scaling and restarts are operational but touch production workloads, so require approval. Cluster deletion and network policy mutation are permanently blocked -- those operations have tenant-wide blast radius and must go through IaC (bicep_arm).",
+      "autonomous": [
+        "get_cluster",
+        "list_clusters",
+        "describe_node_pool",
+        "list_node_pools",
+        "list_namespaces",
+        "list_deployments",
+        "get_deployment",
+        "list_pods",
+        "get_pod",
+        "get_pod_logs",
+        "list_services",
+        "get_service",
+        "describe_hpa",
+        "get_events",
+        "list_daemonsets",
+        "list_statefulsets",
+        "get_kubeconfig_readonly"
+      ],
+      "requires_approval": [
+        "scale_node_pool",
+        "scale_deployment",
+        "rolling_restart_deployment",
+        "cordon_node",
+        "drain_node",
+        "uncordon_node",
+        "update_node_pool_autoscaler",
+        "upgrade_cluster_version"
+      ],
+      "blocked": [
+        "delete_cluster",
+        "delete_node_pool",
+        "modify_network_policy",
+        "modify_azure_cni_config",
+        "modify_rbac_config",
+        "disable_monitoring_addon",
+        "disable_azure_policy_addon",
+        "rotate_cluster_certificates"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["CM-6", "CM-7", "SC-7", "SI-3", "SI-4"],
+      "delegation_allowed": true
+    },
+
+    "container_apps": {
+      "_design_note": "Container Apps is the lower-blast-radius sibling to AKS. Reads and log access are fully autonomous. Revision deployments require approval because they swap production traffic. Managed identity assignments are permanently blocked -- identity changes are an escalation path just like Entra modifications.",
+      "autonomous": [
+        "list_container_apps",
+        "get_container_app",
+        "list_revisions",
+        "get_revision",
+        "get_replica_logs",
+        "get_system_logs",
+        "describe_environment",
+        "list_environments",
+        "get_dapr_config"
+      ],
+      "requires_approval": [
+        "deploy_new_revision",
+        "update_traffic_split",
+        "update_scale_rules",
+        "update_min_max_replicas",
+        "activate_revision",
+        "deactivate_revision"
+      ],
+      "blocked": [
+        "delete_container_app",
+        "delete_environment",
+        "modify_managed_identity_assignment",
+        "assign_managed_identity",
+        "remove_managed_identity",
+        "update_ingress_config",
+        "modify_dapr_config"
+      ],
+      "trust_level": "medium",
+      "control_mappings": ["CM-7", "SC-5", "SC-7"],
+      "delegation_allowed": true
+    },
+
+    "azure_devops_pipelines": {
+      "_design_note": "Pipeline reads and build/test triggers are autonomous -- the agent needs to monitor CI health and kick off validation runs without friction. Deployment pipeline triggers require approval because they push artifacts to live environments. Service connections and variable groups (which hold secrets) are permanently blocked -- modifying these is equivalent to credential exfiltration.",
+      "autonomous": [
+        "list_pipelines",
+        "get_pipeline",
+        "list_pipeline_runs",
+        "get_pipeline_run",
+        "get_pipeline_run_logs",
+        "list_environments",
+        "get_environment",
+        "list_variable_groups",
+        "get_variable_group_metadata",
+        "list_service_connections",
+        "get_service_connection_metadata",
+        "trigger_build_pipeline",
+        "trigger_test_pipeline",
+        "list_artifacts",
+        "get_artifact"
+      ],
+      "requires_approval": [
+        "trigger_deployment_pipeline",
+        "approve_pipeline_gate",
+        "update_pipeline_definition",
+        "add_pipeline_variable",
+        "update_retention_policy"
+      ],
+      "blocked": [
+        "delete_pipeline",
+        "modify_service_connection",
+        "delete_service_connection",
+        "modify_variable_group_secrets",
+        "delete_variable_group",
+        "modify_branch_policy",
+        "add_build_admin",
+        "modify_release_approvals"
+      ],
+      "trust_level": "medium",
+      "control_mappings": ["CM-3", "CM-4", "SA-10", "SI-7"],
+      "delegation_allowed": true
+    },
+
+    "key_vault": {
+      "_design_note": "Vault metadata is needed for troubleshooting -- knowing that a secret named 'db-password' exists in vault 'prod-kv' is operational information, not sensitive data. Secret values must never be read by an agent. Use pipeline-injected environment variables or managed identity token exchange instead. This prevents the agent from becoming a credential harvesting vector if compromised.",
+      "autonomous": [
+        "list_vaults",
+        "get_vault_properties",
+        "list_secret_names",
+        "list_certificate_names",
+        "list_key_names",
+        "get_secret_metadata",
+        "get_certificate_metadata",
+        "get_key_metadata",
+        "list_deleted_secrets"
+      ],
+      "requires_approval": [],
+      "blocked": [
+        "get_secret_value",
+        "get_certificate_value",
+        "get_key_material",
+        "create_secret",
+        "update_secret",
+        "delete_secret",
+        "rotate_secret",
+        "create_certificate",
+        "delete_certificate",
+        "create_key",
+        "delete_key",
+        "modify_access_policy",
+        "modify_rbac_role_assignment",
+        "set_vault_firewall_rules",
+        "purge_deleted_secret"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["IA-5", "SC-12", "SC-28", "AC-6"],
+      "delegation_allowed": false
+    },
+
+    "azure_monitor": {
+      "_design_note": "Observability is always autonomous -- the agent needs full read access to metrics, logs, and alerts to do its job. Alert rule creation requires approval because a poorly scoped alert floods on-call. Deleting alert rules or disabling diagnostic settings would blind the team; both are permanently blocked.",
+      "autonomous": [
+        "query_metrics",
+        "query_log_analytics",
+        "query_application_insights",
+        "list_alert_rules",
+        "get_alert_rule",
+        "list_fired_alerts",
+        "get_fired_alert",
+        "list_dashboards",
+        "get_dashboard",
+        "list_diagnostic_settings",
+        "get_diagnostic_setting",
+        "list_action_groups",
+        "query_resource_health"
+      ],
+      "requires_approval": [
+        "create_alert_rule",
+        "update_alert_rule",
+        "create_action_group",
+        "create_dashboard",
+        "create_scheduled_query_rule"
+      ],
+      "blocked": [
+        "delete_alert_rule",
+        "disable_diagnostic_settings",
+        "delete_diagnostic_setting",
+        "delete_dashboard",
+        "delete_action_group",
+        "suppress_alert_rule"
+      ],
+      "trust_level": "low",
+      "control_mappings": ["AU-2", "AU-6", "AU-12", "SI-4"],
+      "delegation_allowed": true
+    },
+
+    "bicep_arm": {
+      "_design_note": "What-if is always safe -- it's a pure read + diff with no side effects. All applies are human-gated. Production deployments should require a separate, higher-confidence approval signal from the production change manager, not just the agent operator. Never delete resource groups autonomously -- recovery from an accidental delete is measured in hours, not minutes.",
+      "autonomous": [
+        "read_template",
+        "validate_template",
+        "run_what_if_analysis",
+        "list_deployments",
+        "get_deployment",
+        "get_deployment_operations",
+        "list_resource_groups",
+        "get_resource_group",
+        "list_resources",
+        "get_resource"
+      ],
+      "requires_approval": [
+        "deploy_to_dev",
+        "deploy_to_staging",
+        "deploy_to_prod",
+        "create_resource_group",
+        "update_resource_group_tags",
+        "cancel_deployment"
+      ],
+      "blocked": [
+        "delete_resource_group",
+        "purge_deleted_resources",
+        "move_resources",
+        "lock_resource",
+        "delete_lock"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["CM-2", "CM-3", "CM-6", "CM-8"],
+      "delegation_allowed": false
+    },
+
+    "azure_policy": {
+      "_design_note": "Policy reads and compliance reporting are fully autonomous -- this is governance visibility, not a write operation. Assigning a policy can block entire subscriptions from deploying resources, so it requires approval. Policy exemptions bypass compliance controls and are permanently blocked; if a resource needs an exemption, a human must do it through the governance portal.",
+      "autonomous": [
+        "list_policy_definitions",
+        "get_policy_definition",
+        "list_policy_assignments",
+        "get_policy_assignment",
+        "get_compliance_state",
+        "list_compliance_details",
+        "list_policy_set_definitions",
+        "get_policy_set_definition",
+        "list_blueprints",
+        "get_blueprint"
+      ],
+      "requires_approval": [
+        "create_policy_definition",
+        "assign_policy",
+        "update_policy_assignment",
+        "assign_blueprint"
+      ],
+      "blocked": [
+        "delete_policy_definition",
+        "delete_policy_assignment",
+        "exempt_resource",
+        "delete_blueprint",
+        "publish_blueprint"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["CM-6", "CM-7", "CA-7", "SI-2"],
+      "delegation_allowed": false
+    },
+
+    "notifications": {
+      "_design_note": "The agent must be able to send Teams and email alerts autonomously -- alerting is only useful if it's never gated behind approval. Creating new alert channels (webhooks, distribution lists) requires approval to prevent alert sprawl and potential data routing mistakes. Disabling alerting in any form is permanently blocked.",
+      "autonomous": [
+        "send_teams_message",
+        "send_teams_adaptive_card",
+        "send_email_alert",
+        "post_to_existing_webhook",
+        "update_teams_card"
+      ],
+      "requires_approval": [
+        "create_teams_webhook",
+        "add_email_recipient",
+        "create_notification_channel"
+      ],
+      "blocked": [
+        "disable_alerting",
+        "delete_notification_channel",
+        "remove_email_recipient",
+        "delete_webhook"
+      ],
+      "trust_level": "low",
+      "control_mappings": ["AU-6", "IR-6", "SI-5"],
+      "delegation_allowed": true
+    }
+
+  },
+
+  "consent_decay": {
+    "enabled": true,
+    "review_interval_days": 30
+  },
+
+  "last_reviewed": null
+}

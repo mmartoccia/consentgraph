@@ -1,0 +1,280 @@
+{
+  "metadata": {
+    "version": "0.2.0",
+    "description": "Consent graph for a cloud-provider-agnostic Terraform/IaC agent managing infrastructure across providers in 2026. This is a platform engineering agent -- it runs terraform plan/apply workflows and manages IaC state, not cloud-specific workloads. Autonomous for plan, validate, and read ops; approval required for all applies; destroy is permanently blocked in all environments.",
+    "owner": "terraform-iac-agent",
+    "agent_id": "terraform-iac-agent",
+    "compliance_profile": "commercial",
+    "created_at": "2026-03-07",
+    "updated_at": "2026-03-07"
+  },
+
+  "domains": {
+
+    "terraform_core": {
+      "_design_note": "Plan is always safe -- it's a read plus a diff with no side effects on real infrastructure. Apply is the point of no return: it issues real API calls against real cloud providers. Destroy is never autonomous regardless of environment or confidence level. Even 'dev' environment destroys can cascade if shared resources or downstream state references exist. Force-unlock is permanently blocked because it can corrupt state when misapplied -- a stuck lock needs human investigation, not automated removal.",
+      "autonomous": [
+        "terraform_init",
+        "terraform_validate",
+        "terraform_fmt",
+        "terraform_fmt_check",
+        "terraform_plan",
+        "terraform_show",
+        "terraform_output",
+        "terraform_graph",
+        "terraform_providers",
+        "terraform_version",
+        "terraform_refresh"
+      ],
+      "requires_approval": [
+        "terraform_apply_non_prod",
+        "terraform_apply_prod",
+        "terraform_taint",
+        "terraform_untaint",
+        "terraform_import",
+        "terraform_state_mv",
+        "terraform_state_rm"
+      ],
+      "blocked": [
+        "terraform_destroy",
+        "terraform_force_unlock",
+        "terraform_apply_destroy_flag",
+        "terraform_apply_auto_approve_prod"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["CM-2", "CM-3", "CM-6", "CM-8", "SA-10"],
+      "delegation_allowed": false
+    },
+
+    "state_management": {
+      "_design_note": "Direct state manipulation bypasses the plan/apply cycle entirely and can corrupt the environment in ways that are extremely difficult to recover from. The agent may read state freely -- state inspection is essential for drift detection and troubleshooting. Moving state items (terraform state mv) requires approval because it changes what Terraform believes it manages; an incorrect move can cause the next plan to propose deleting real resources. Pushing or overwriting state files directly is permanently blocked -- always go through terraform apply with a human gate.",
+      "autonomous": [
+        "read_tfstate",
+        "terraform_state_list",
+        "terraform_state_show",
+        "terraform_state_pull",
+        "list_state_backends",
+        "get_state_backend_config",
+        "list_state_locks",
+        "inspect_state_file"
+      ],
+      "requires_approval": [
+        "terraform_state_mv",
+        "terraform_state_rm",
+        "terraform_import",
+        "unlock_state_lock",
+        "migrate_state_backend"
+      ],
+      "blocked": [
+        "terraform_state_push",
+        "delete_state_file",
+        "overwrite_state_file",
+        "write_state_directly",
+        "delete_state_backend",
+        "modify_state_locking_config"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["CM-2", "CM-3", "CM-8", "CP-9"],
+      "delegation_allowed": false
+    },
+
+    "workspace_management": {
+      "_design_note": "Workspace switching is a context switch only -- it changes which state file Terraform reads, but does not modify infrastructure. Switching workspaces autonomously is safe as long as the agent does not immediately follow with an apply. Creating workspaces requires approval because it sets up a new environment lifecycle that a human should consciously own. Deleting workspaces is permanently blocked; workspace deletion destroys the associated state, which may orphan real cloud resources.",
+      "autonomous": [
+        "terraform_workspace_list",
+        "terraform_workspace_show",
+        "terraform_workspace_select",
+        "get_workspace_metadata",
+        "list_workspace_outputs"
+      ],
+      "requires_approval": [
+        "terraform_workspace_new",
+        "rename_workspace",
+        "update_workspace_config"
+      ],
+      "blocked": [
+        "terraform_workspace_delete",
+        "purge_workspace_state",
+        "bulk_delete_workspaces"
+      ],
+      "trust_level": "medium",
+      "control_mappings": ["CM-2", "CM-8"],
+      "delegation_allowed": true
+    },
+
+    "module_registry": {
+      "_design_note": "Public registry modules are pull-only -- fetching and reading module source is always autonomous. Private registry publishing requires approval because it affects every consumer of that module version across all teams. A bad module version publish cannot be easily un-published (downstream locks), so human review is mandatory. Deleting a published module version is permanently blocked -- module version deletion breaks any workspace that pinned that version and can halt all infrastructure pipelines.",
+      "autonomous": [
+        "list_modules",
+        "get_module",
+        "list_module_versions",
+        "get_module_version",
+        "download_module_source",
+        "search_registry",
+        "get_provider_schema",
+        "list_providers",
+        "get_provider_version"
+      ],
+      "requires_approval": [
+        "publish_module_version",
+        "update_module_metadata",
+        "add_module_to_private_registry",
+        "publish_provider_version"
+      ],
+      "blocked": [
+        "delete_module_version",
+        "delete_module",
+        "deprecate_module",
+        "delete_provider_version",
+        "yank_module_version"
+      ],
+      "trust_level": "low",
+      "control_mappings": ["CM-7", "SA-10", "SI-7"],
+      "delegation_allowed": true
+    },
+
+    "provider_credentials": {
+      "_design_note": "Provider credentials are the keys to the kingdom across ALL clouds this agent touches. A compromised credential set can affect AWS, Azure, and GCP simultaneously if this agent is configured as a multi-cloud Terraform runner. Reading the current provider configuration (which providers are configured, which regions, which aliases) is safe and necessary for plan output interpretation. Actual credential values must never be read. Rotation requires approval because it must be coordinated with pipeline systems that inject credentials at runtime.",
+      "autonomous": [
+        "get_provider_config_metadata",
+        "list_configured_providers",
+        "get_provider_aliases",
+        "verify_provider_auth_status",
+        "list_provider_regions"
+      ],
+      "requires_approval": [
+        "rotate_provider_credentials",
+        "configure_new_provider",
+        "update_provider_region_config",
+        "switch_credential_source"
+      ],
+      "blocked": [
+        "read_credential_values",
+        "export_credentials",
+        "delete_credentials",
+        "share_credentials_with_external_system",
+        "disable_provider_mfa"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["IA-5", "SC-12", "SC-28", "AC-6", "AC-3"],
+      "delegation_allowed": false
+    },
+
+    "drift_detection": {
+      "_design_note": "Detection is always autonomous. Remediation never is. Terraform plan run against live state to detect drift is a pure read operation -- it touches nothing real. Reporting drift to the notifications channel is autonomous because it is just information delivery. Auto-remediation (running terraform apply to fix drift) is permanently blocked because drift remediation is an unplanned apply; it can overwrite intentional manual changes, trigger cascading resource replacements, or apply in the wrong workspace. Every drift remediation decision requires a human reading the plan output first.",
+      "autonomous": [
+        "run_drift_check_plan",
+        "compare_state_to_actual",
+        "list_drifted_resources",
+        "get_drift_report",
+        "report_drift_to_notifications",
+        "schedule_drift_scan",
+        "get_last_drift_scan_results"
+      ],
+      "requires_approval": [],
+      "blocked": [
+        "auto_remediate_drift",
+        "auto_apply_drift_fix",
+        "suppress_drift_report",
+        "mark_drift_as_expected",
+        "disable_drift_detection"
+      ],
+      "trust_level": "low",
+      "control_mappings": ["CM-3", "CM-6", "CM-8", "CA-7"],
+      "delegation_allowed": true
+    },
+
+    "cost_estimation": {
+      "_design_note": "Cost estimation is pure read -- tools like Infracost run against plan output and touch nothing live. The agent should always estimate cost before an apply and post the summary to the relevant PR or Slack thread so the approving human has a cost delta visible at approval time. This is a force multiplier for responsible infrastructure management: if the plan would add $10k/month to the bill, the approver should know before clicking approve.",
+      "autonomous": [
+        "run_infracost_estimate",
+        "get_cost_estimate",
+        "compare_cost_diff",
+        "post_cost_summary_to_pr",
+        "post_cost_summary_to_slack",
+        "get_cloud_pricing",
+        "list_cost_estimates",
+        "generate_cost_report"
+      ],
+      "requires_approval": [],
+      "blocked": [
+        "modify_cloud_billing_account",
+        "set_budget_alert",
+        "disable_cost_estimation",
+        "suppress_cost_report"
+      ],
+      "trust_level": "low",
+      "control_mappings": ["SA-2", "PM-3"],
+      "delegation_allowed": true
+    },
+
+    "policy_checks": {
+      "_design_note": "Policy enforcement is one case where autonomous blocking is correct -- the agent should stop a non-compliant apply without asking, and report the violation. Autonomous blocking on policy failure is not the same as autonomous destructive action; it is refusal to act. Override is always human-only: if a policy check needs to be bypassed, a human must do it explicitly and the bypass must be logged. Policy enforcement tools like OPA/Rego, Sentinel, and Checkov are all read-operations against plan JSON -- they touch nothing live.",
+      "autonomous": [
+        "run_opa_policy_check",
+        "run_sentinel_check",
+        "run_checkov_scan",
+        "run_tfsec_scan",
+        "run_terrascan",
+        "get_policy_violations",
+        "report_policy_violations",
+        "block_apply_on_policy_failure",
+        "post_policy_results_to_pr",
+        "list_policy_rules",
+        "get_policy_rule"
+      ],
+      "requires_approval": [
+        "add_policy_rule",
+        "update_policy_rule",
+        "disable_single_policy_rule"
+      ],
+      "blocked": [
+        "override_policy_check",
+        "suppress_all_policy_violations",
+        "delete_policy_rule",
+        "disable_policy_enforcement",
+        "mark_violation_as_approved"
+      ],
+      "trust_level": "low",
+      "control_mappings": ["CM-6", "CM-7", "CA-2", "CA-7", "RA-5"],
+      "delegation_allowed": true
+    },
+
+    "notifications": {
+      "_design_note": "Plan summaries, drift alerts, cost estimates, and policy violations must all flow through the notification channel autonomously -- these are operational signals that require no human gate to send. The agent should never need approval to report information. Creating new notification channels requires approval to prevent routing mistakes (e.g., cost estimates going to a public Slack channel). Silencing policy violation alerts is permanently blocked -- if a violation is being reported, a human must decide what to do with that information.",
+      "autonomous": [
+        "post_plan_summary_to_slack",
+        "post_plan_summary_to_teams",
+        "post_plan_summary_to_github_pr",
+        "send_drift_alert",
+        "send_cost_estimate_summary",
+        "send_policy_violation_report",
+        "post_apply_result_notification",
+        "post_to_existing_webhook"
+      ],
+      "requires_approval": [
+        "create_notification_channel",
+        "add_slack_webhook",
+        "add_teams_webhook",
+        "add_github_integration"
+      ],
+      "blocked": [
+        "silence_policy_violation_alerts",
+        "delete_notification_channel",
+        "disable_notifications",
+        "suppress_plan_summaries"
+      ],
+      "trust_level": "low",
+      "control_mappings": ["AU-6", "IR-6", "SI-5"],
+      "delegation_allowed": true
+    }
+
+  },
+
+  "consent_decay": {
+    "enabled": true,
+    "review_interval_days": 45
+  },
+
+  "last_reviewed": null
+}

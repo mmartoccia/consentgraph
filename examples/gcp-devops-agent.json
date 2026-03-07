@@ -1,0 +1,337 @@
+{
+  "metadata": {
+    "version": "0.2.0",
+    "description": "Consent graph for a GCP DevOps agent managing cloud deployment and operations workflows in 2026. Autonomous for reads, observability, and non-destructive ops; approval required for deployments, scaling, and traffic changes; IAM mutations and secret values are permanently blocked.",
+    "owner": "gcp-devops-agent",
+    "agent_id": "gcp-devops-agent",
+    "compliance_profile": "commercial",
+    "created_at": "2026-03-07",
+    "updated_at": "2026-03-07"
+  },
+
+  "domains": {
+
+    "gcp_iam": {
+      "_design_note": "IAM is read-only without exception. Workload Identity Federation makes direct service account key management obsolete -- the agent should never touch keys directly, and never modify role bindings or policies. An agent that can bind IAM roles can grant itself compute.admin or roles/owner; this is the most dangerous class of agent action in any cloud environment.",
+      "autonomous": [
+        "list_roles",
+        "get_role",
+        "list_iam_policies",
+        "get_iam_policy",
+        "list_service_accounts",
+        "get_service_account",
+        "list_service_account_keys",
+        "get_workload_identity_pool",
+        "list_workload_identity_pools",
+        "test_iam_permissions",
+        "list_custom_roles",
+        "get_org_policy"
+      ],
+      "requires_approval": [],
+      "blocked": [
+        "create_role",
+        "update_role",
+        "delete_role",
+        "set_iam_policy",
+        "add_iam_binding",
+        "remove_iam_binding",
+        "create_service_account",
+        "delete_service_account",
+        "create_service_account_key",
+        "delete_service_account_key",
+        "disable_service_account",
+        "create_workload_identity_pool",
+        "modify_workload_identity_pool",
+        "set_org_policy"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["AC-2", "AC-3", "AC-6", "IA-4", "IA-5"],
+      "delegation_allowed": false
+    },
+
+    "cloud_build": {
+      "_design_note": "Build and test triggers are autonomous -- the agent should be able to kick off validation pipelines without friction to support fast CI loops. Deploy triggers are different: they push artifacts to live environments and require approval. Trigger configuration and deletion are blocked because modifying trigger definitions is equivalent to modifying the pipeline itself, which is a code change that must go through source control.",
+      "autonomous": [
+        "list_builds",
+        "get_build",
+        "get_build_logs",
+        "list_triggers",
+        "get_trigger",
+        "list_worker_pools",
+        "get_worker_pool",
+        "list_artifacts",
+        "trigger_build",
+        "trigger_test_trigger",
+        "cancel_build"
+      ],
+      "requires_approval": [
+        "trigger_deploy_trigger",
+        "approve_build",
+        "retry_build"
+      ],
+      "blocked": [
+        "delete_trigger",
+        "create_trigger",
+        "update_trigger",
+        "delete_build",
+        "modify_worker_pool",
+        "delete_worker_pool"
+      ],
+      "trust_level": "medium",
+      "control_mappings": ["CM-3", "CM-4", "SA-10", "SI-7"],
+      "delegation_allowed": true
+    },
+
+    "gke": {
+      "_design_note": "Full read access is always autonomous -- the agent needs complete cluster visibility to diagnose issues. Scaling and restart operations touch production workloads and require approval. Cluster deletion, network policy changes, and workload identity binding modifications are permanently blocked. Workload identity bindings in particular are an IAM escalation path dressed up as a Kubernetes operation; treat them with the same severity as gcp_iam writes.",
+      "autonomous": [
+        "get_cluster",
+        "list_clusters",
+        "describe_node_pool",
+        "list_node_pools",
+        "list_namespaces",
+        "list_deployments",
+        "get_deployment",
+        "list_pods",
+        "get_pod",
+        "get_pod_logs",
+        "list_services",
+        "get_service",
+        "describe_hpa",
+        "get_events",
+        "list_daemonsets",
+        "list_statefulsets",
+        "list_config_maps",
+        "get_cluster_credentials_readonly"
+      ],
+      "requires_approval": [
+        "scale_deployment",
+        "scale_node_pool",
+        "rolling_restart_deployment",
+        "cordon_node",
+        "drain_node",
+        "uncordon_node",
+        "upgrade_cluster_version",
+        "update_node_pool_autoscaler"
+      ],
+      "blocked": [
+        "delete_cluster",
+        "delete_node_pool",
+        "modify_network_policy",
+        "modify_workload_identity_binding",
+        "modify_master_authorized_networks",
+        "modify_binary_authorization_policy",
+        "disable_shielded_nodes",
+        "rotate_cluster_ip"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["CM-6", "CM-7", "SC-7", "SI-3", "SI-4"],
+      "delegation_allowed": true
+    },
+
+    "cloud_run": {
+      "_design_note": "Cloud Run is serverless and lower blast radius than GKE, but production traffic still deserves a human gate at deploy time. Traffic splits are especially dangerous -- a bad weight update can silently route 100% of traffic to a broken revision. IAM bindings on Cloud Run services are blocked; these control who can invoke the service and fall under the same no-IAM-writes rule as gcp_iam.",
+      "autonomous": [
+        "list_services",
+        "get_service",
+        "list_revisions",
+        "get_revision",
+        "get_service_logs",
+        "get_revision_logs",
+        "list_jobs",
+        "get_job",
+        "describe_traffic_split",
+        "list_domain_mappings",
+        "get_metrics"
+      ],
+      "requires_approval": [
+        "deploy_new_revision",
+        "update_traffic_split",
+        "run_job",
+        "update_service_config",
+        "update_min_max_instances",
+        "update_concurrency"
+      ],
+      "blocked": [
+        "delete_service",
+        "delete_revision",
+        "delete_job",
+        "modify_iam_bindings_on_service",
+        "set_invoker_iam_policy",
+        "modify_ingress_settings",
+        "enable_unauthenticated_access"
+      ],
+      "trust_level": "medium",
+      "control_mappings": ["CM-7", "SC-5", "SC-7", "AC-3"],
+      "delegation_allowed": true
+    },
+
+    "artifact_registry": {
+      "_design_note": "Vulnerability scanning results must be readable autonomously -- this is core to a DevOps agent's security posture awareness. An agent that can't read CVE data can't flag a critical vulnerability before a broken image ships. Image push requires approval because it can overwrite a production tag. Repo IAM modifications are permanently blocked (same no-IAM-writes rule as gcp_iam).",
+      "autonomous": [
+        "list_repositories",
+        "get_repository",
+        "list_docker_images",
+        "get_docker_image",
+        "list_tags",
+        "get_tag",
+        "get_vulnerability_scan_results",
+        "list_vulnerability_occurrences",
+        "pull_image",
+        "list_packages",
+        "get_package_version"
+      ],
+      "requires_approval": [
+        "push_image",
+        "create_repository",
+        "tag_image",
+        "upload_package_version"
+      ],
+      "blocked": [
+        "delete_image",
+        "delete_tag",
+        "delete_repository",
+        "modify_repository_iam",
+        "set_cleanup_policy",
+        "delete_package_version"
+      ],
+      "trust_level": "medium",
+      "control_mappings": ["CM-7", "RA-5", "SA-10", "SI-3"],
+      "delegation_allowed": true
+    },
+
+    "secret_manager": {
+      "_design_note": "The agent sees the map, never the territory. Knowing that a secret named 'prod-db-password' exists in version 3 is operational information needed for troubleshooting. Reading the actual value is never necessary -- use Workload Identity + pipeline-injected env vars instead. This prevents the agent from becoming a credential harvesting vector if compromised or jailbroken.",
+      "autonomous": [
+        "list_secrets",
+        "get_secret_metadata",
+        "list_secret_versions",
+        "get_secret_version_metadata"
+      ],
+      "requires_approval": [],
+      "blocked": [
+        "access_secret_version",
+        "create_secret",
+        "delete_secret",
+        "add_secret_version",
+        "destroy_secret_version",
+        "disable_secret_version",
+        "modify_secret_replication",
+        "set_secret_iam_policy"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["IA-5", "SC-12", "SC-28", "AC-6"],
+      "delegation_allowed": false
+    },
+
+    "cloud_monitoring": {
+      "_design_note": "Observability is always autonomous -- the agent needs complete read access to metrics, logs, traces, and error reports to diagnose incidents. Alert policy creation requires approval because a misconfigured alert threshold floods on-call. Deleting alert policies or disabling log sinks would blind the operations team and are permanently blocked.",
+      "autonomous": [
+        "list_alert_policies",
+        "get_alert_policy",
+        "list_notification_channels",
+        "get_notification_channel",
+        "list_uptime_checks",
+        "get_uptime_check",
+        "query_time_series",
+        "list_metric_descriptors",
+        "query_logs",
+        "list_log_sinks",
+        "get_log_sink",
+        "list_error_groups",
+        "get_error_group",
+        "list_traces",
+        "get_trace",
+        "list_dashboards",
+        "get_dashboard"
+      ],
+      "requires_approval": [
+        "create_alert_policy",
+        "update_alert_policy",
+        "create_notification_channel",
+        "create_uptime_check",
+        "create_dashboard"
+      ],
+      "blocked": [
+        "delete_alert_policy",
+        "delete_log_sink",
+        "disable_log_sink",
+        "delete_notification_channel",
+        "delete_uptime_check",
+        "delete_dashboard",
+        "mute_alert"
+      ],
+      "trust_level": "low",
+      "control_mappings": ["AU-2", "AU-6", "AU-12", "SI-4"],
+      "delegation_allowed": true
+    },
+
+    "terraform_config_connector": {
+      "_design_note": "Plan (terraform plan) and Config Connector dry-runs are always safe -- they produce a diff with no side effects. All applies are human-gated. Production applies should require a separate higher-confidence approval signal (e.g., a different human approver than dev/staging). The state file is the source of truth for the entire environment; never write it directly -- always go through terraform apply with a human gate. Direct state writes bypass the plan/apply cycle and can corrupt the environment silently.",
+      "autonomous": [
+        "terraform_init",
+        "terraform_validate",
+        "terraform_fmt_check",
+        "terraform_plan",
+        "terraform_show",
+        "read_tfstate",
+        "list_workspaces",
+        "config_connector_dry_run",
+        "get_resource_inventory"
+      ],
+      "requires_approval": [
+        "terraform_apply_non_prod",
+        "terraform_apply_prod",
+        "config_connector_apply",
+        "terraform_state_mv",
+        "terraform_state_rm",
+        "terraform_import"
+      ],
+      "blocked": [
+        "terraform_destroy",
+        "terraform_state_push",
+        "terraform_force_unlock",
+        "delete_state_file",
+        "overwrite_state_file",
+        "config_connector_delete_all"
+      ],
+      "trust_level": "high",
+      "control_mappings": ["CM-2", "CM-3", "CM-6", "CM-8"],
+      "delegation_allowed": false
+    },
+
+    "notifications": {
+      "_design_note": "The agent must be able to send PagerDuty events, Slack alerts, and Cloud Pub-Sub messages autonomously -- alerting is a core operational function that must never be gated. Creating new notification channels requires approval to prevent alert sprawl. Silencing all alerts is permanently blocked; if an alert needs to be quieted, a human must do it with a time-bounded snooze.",
+      "autonomous": [
+        "send_pagerduty_event",
+        "send_slack_notification",
+        "publish_pubsub_message",
+        "send_email_alert",
+        "post_to_existing_webhook"
+      ],
+      "requires_approval": [
+        "create_notification_channel",
+        "add_pagerduty_service",
+        "create_pubsub_topic",
+        "add_slack_webhook"
+      ],
+      "blocked": [
+        "silence_all_alerts",
+        "delete_notification_channel",
+        "disable_pagerduty_integration",
+        "delete_pubsub_topic"
+      ],
+      "trust_level": "low",
+      "control_mappings": ["AU-6", "IR-6", "SI-5"],
+      "delegation_allowed": true
+    }
+
+  },
+
+  "consent_decay": {
+    "enabled": true,
+    "review_interval_days": 30
+  },
+
+  "last_reviewed": null
+}
