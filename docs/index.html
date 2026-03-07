@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ConsentGraph — AI Agent Action Governance</title>
-  <meta name="description" content="Consent Graph as Code. Define exactly what your AI agent can do autonomously, what requires human approval, and what is permanently off-limits — in a single JSON file.">
+  <title>ConsentGraph — Policy as Code for AI Agents</title>
+  <meta name="description" content="Consent Graph as Code. Enforce AC-5 and AC-6 least privilege for multi-agent systems. Define autonomous, human-in-the-loop, and blocked actions in JSON.">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace; background: #0d1117; color: #e6edf3; line-height: 1.6; }
@@ -56,8 +56,8 @@
 
 <header>
   <div class="logo">ConsentGraph</div>
-  <h1>AI agents should ask<br>before they act. <span>Now they can.</span></h1>
-  <p class="subtitle">Consent Graph as Code — define what your agent can do autonomously, what requires approval, and what is permanently off-limits. In a single JSON file.</p>
+  <h1>Restrict AI agent blast radius.<br><span>Enforce policy as code.</span></h1>
+  <p class="subtitle">The missing compliance layer for AI agents. Deterministically enforce least privilege (AC-6) and separation of duties (AC-5) across your multi-agent architecture.</p>
 </header>
 
 <div class="install-block">
@@ -68,7 +68,7 @@
 <main>
 
   <p class="problem">
-    AI agents break trust not because they're malicious — but because the authorization boundary was never made explicit. ConsentGraph gives you a deterministic, auditable policy layer that travels with your deployment.
+    AI agents break trust when their authorization boundaries are implicit. ConsentGraph gives you a deterministic, auditable policy layer that travels with your deployment—bridging the gap between LLM reasoning and hard infrastructure constraints.
   </p>
 
   <h2>Four tiers. No ambiguity.</h2>
@@ -94,21 +94,21 @@
   <h2>Three lines to integrate</h2>
   <pre><span class="kw">from</span> consentgraph <span class="kw">import</span> check_consent
 
-tier = check_consent(<span class="str">"email"</span>, <span class="str">"send"</span>, confidence=<span class="num">0.9</span>)
+tier = check_consent(<span class="str">"aws_ecs"</span>, <span class="str">"update_service"</span>, confidence=<span class="num">0.92</span>)
 <span class="comment"># → "SILENT" | "VISIBLE" | "FORCED" | "BLOCKED"</span></pre>
 
   <h2>Define policy in JSON</h2>
   <pre>{
   <span class="str">"domains"</span>: {
-    <span class="str">"email"</span>: {
-      <span class="str">"autonomous"</span>: [<span class="str">"read"</span>, <span class="str">"archive_promo"</span>],
-      <span class="str">"requires_approval"</span>: [<span class="str">"send"</span>, <span class="str">"reply"</span>],
-      <span class="str">"blocked"</span>: [<span class="str">"delete_all"</span>, <span class="str">"forward_external"</span>]
+    <span class="str">"aws_ecs"</span>: {
+      <span class="str">"autonomous"</span>: [<span class="str">"describe_clusters"</span>, <span class="str">"list_services"</span>],
+      <span class="str">"requires_approval"</span>: [<span class="str">"update_service"</span>, <span class="str">"stop_task"</span>],
+      <span class="str">"blocked"</span>: [<span class="str">"delete_cluster"</span>, <span class="str">"deregister_task_definition"</span>]
     },
-    <span class="str">"filesystem"</span>: {
-      <span class="str">"autonomous"</span>: [<span class="str">"read"</span>, <span class="str">"create_temp"</span>],
-      <span class="str">"requires_approval"</span>: [<span class="str">"write"</span>, <span class="str">"rename"</span>],
-      <span class="str">"blocked"</span>: [<span class="str">"delete"</span>, <span class="str">"chmod"</span>]
+    <span class="str">"kubernetes"</span>: {
+      <span class="str">"autonomous"</span>: [<span class="str">"get_pods"</span>, <span class="str">"get_logs"</span>],
+      <span class="str">"requires_approval"</span>: [<span class="str">"rollout_restart"</span>, <span class="str">"scale_deployment"</span>],
+      <span class="str">"blocked"</span>: [<span class="str">"delete_namespace"</span>, <span class="str">"create_clusterrolebinding"</span>]
     }
   }
 }</pre>
@@ -119,8 +119,24 @@ consentgraph mcp
 
 <span class="comment"># Tool exposed: check_consent(domain, action, confidence) → tier</span></pre>
 
+  <h2>Ready for FedRAMP &amp; CMMC</h2>
+  <p class="problem">ConsentGraph ships 9 production-ready policy profiles for AWS ECS, Azure Government, GCP, Kubernetes, Terraform, and more. Every domain maps directly to NIST 800-53 and NIST 800-172 controls—so your compliance team can review agent policy without reading agent code.</p>
+
+  <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin: 1rem 0 2rem;">
+    <span style="background:#1f4423;color:#56d364;padding:0.25rem 0.75rem;border-radius:4px;font-size:0.85rem;font-family:monospace;">AWS ECS</span>
+    <span style="background:#1f4423;color:#56d364;padding:0.25rem 0.75rem;border-radius:4px;font-size:0.85rem;font-family:monospace;">AWS Cost Optimizer</span>
+    <span style="background:#1f4423;color:#56d364;padding:0.25rem 0.75rem;border-radius:4px;font-size:0.85rem;font-family:monospace;">Kubernetes</span>
+    <span style="background:#1c2d3a;color:#58a6ff;padding:0.25rem 0.75rem;border-radius:4px;font-size:0.85rem;font-family:monospace;">Azure Gov · FedRAMP-High</span>
+    <span style="background:#1c2d3a;color:#58a6ff;padding:0.25rem 0.75rem;border-radius:4px;font-size:0.85rem;font-family:monospace;">CMMC-L3 DevOps</span>
+    <span style="background:#1f4423;color:#56d364;padding:0.25rem 0.75rem;border-radius:4px;font-size:0.85rem;font-family:monospace;">GCP</span>
+    <span style="background:#1f4423;color:#56d364;padding:0.25rem 0.75rem;border-radius:4px;font-size:0.85rem;font-family:monospace;">Azure DevOps</span>
+    <span style="background:#1f4423;color:#56d364;padding:0.25rem 0.75rem;border-radius:4px;font-size:0.85rem;font-family:monospace;">Terraform / IaC</span>
+    <span style="background:#2d1a04;color:#f0883e;padding:0.25rem 0.75rem;border-radius:4px;font-size:0.85rem;font-family:monospace;">Multi-Agent Orchestrator</span>
+  </div>
+
   <div class="links">
     <a href="https://github.com/mmartoccia/consentgraph" class="link-btn">GitHub</a>
+    <a href="https://github.com/mmartoccia/consentgraph/tree/main/examples" class="link-btn">Examples</a>
     <a href="https://pypi.org/project/consentgraph/" class="link-btn">PyPI</a>
     <a href="/llms.txt" class="link-btn">llms.txt</a>
     <a href="/schema.json" class="link-btn">Schema</a>
