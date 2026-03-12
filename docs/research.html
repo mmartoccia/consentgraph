@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agents of Chaos: What the Red Team Found — ConsentGraph Research</title>
+  <meta name="description" content="Analysis of the Agents of Chaos red-team study on autonomous AI agents. How ConsentGraph addresses the structural vulnerabilities identified.">
+  <meta property="og:title" content="Agents of Chaos: What the Red Team Found">
+  <meta property="og:description" content="11 exploits against autonomous AI agents. Which ones are solvable today, and which are open problems.">
+  <meta property="og:type" content="article">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace; background: #0d1117; color: #e6edf3; line-height: 1.6; }
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    header { padding: 3rem 2rem 2rem; max-width: 860px; margin: 0 auto; }
+    .breadcrumb { font-size: 0.85rem; color: #8b949e; margin-bottom: 1.5rem; }
+    h1 { font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 700; color: #f0f6fc; margin-bottom: 0.5rem; }
+    .date { font-size: 0.9rem; color: #8b949e; margin-bottom: 1rem; }
+    .subtitle { font-size: 1.15rem; color: #8b949e; max-width: 650px; margin-bottom: 2rem; }
+
+    main { max-width: 860px; margin: 0 auto; padding: 0 2rem 4rem; }
+
+    h2 { font-size: 1.3rem; color: #f0f6fc; margin: 2.5rem 0 1rem; padding-top: 1rem; border-top: 1px solid #21262d; }
+    h2:first-of-type { border-top: none; padding-top: 0; }
+    h3 { font-size: 1.05rem; color: #c9d1d9; margin: 1.5rem 0 0.75rem; }
+
+    p { color: #c9d1d9; margin-bottom: 1rem; font-size: 0.95rem; }
+    p.lead { font-size: 1.1rem; color: #e6edf3; border-left: 3px solid #30363d; padding-left: 1.25rem; margin-bottom: 2rem; }
+
+    .finding { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+    .finding-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+    .finding-num { font-family: monospace; font-weight: 700; font-size: 0.8rem; padding: 0.2rem 0.5rem; border-radius: 4px; }
+    .finding-title { font-weight: 600; color: #f0f6fc; }
+    .finding p { margin-bottom: 0.5rem; font-size: 0.9rem; }
+    .finding p:last-child { margin-bottom: 0; }
+
+    .status-solved { background: #1f4423; color: #56d364; }
+    .status-partial { background: #2d2a04; color: #e3b341; }
+    .status-open { background: #3d1c1c; color: #f85149; }
+
+    .solution-tag { display: inline-block; font-family: monospace; font-size: 0.8rem; padding: 0.15rem 0.5rem; border-radius: 4px; margin-top: 0.5rem; }
+    .cg-tag { background: #1c2d3a; border: 1px solid #1f6feb; color: #58a6ff; }
+    .config-tag { background: #1f4423; border: 1px solid #238636; color: #56d364; }
+    .open-tag { background: #3d1c1c; border: 1px solid #f85149; color: #f85149; }
+
+    pre { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85rem; line-height: 1.7; margin-bottom: 1.5rem; }
+    .kw { color: #79c0ff; }
+    .str { color: #a5d6ff; }
+    .comment { color: #8b949e; }
+
+    .scorecard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 2rem 0; }
+    .score-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; text-align: center; }
+    .score-num { font-size: 2rem; font-weight: 700; }
+    .score-label { font-size: 0.85rem; color: #8b949e; margin-top: 0.25rem; }
+    .green { color: #56d364; }
+    .yellow { color: #e3b341; }
+    .red { color: #f85149; }
+
+    .tl-dr { background: #161b22; border: 1px solid #1f6feb; border-radius: 8px; padding: 1.5rem; margin: 2rem 0; }
+    .tl-dr h3 { color: #58a6ff; margin-top: 0; }
+
+    table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }
+    th { text-align: left; color: #8b949e; font-weight: 600; padding: 0.75rem 1rem; border-bottom: 2px solid #30363d; }
+    td { padding: 0.75rem 1rem; border-bottom: 1px solid #21262d; color: #c9d1d9; }
+    tr:hover td { background: #161b22; }
+
+    .links { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #21262d; }
+    .link-btn { background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 0.6rem 1.2rem; color: #e6edf3; font-size: 0.9rem; transition: background 0.15s; }
+    .link-btn:hover { background: #30363d; text-decoration: none; }
+    .link-btn.primary { background: #1f6feb; border-color: #1f6feb; }
+    .link-btn.primary:hover { background: #388bfd; }
+
+    footer { max-width: 860px; margin: 0 auto; padding: 2rem; color: #8b949e; font-size: 0.8rem; }
+
+    @media (max-width: 600px) {
+      .scorecard { grid-template-columns: 1fr; }
+      header, main { padding-left: 1.25rem; padding-right: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="breadcrumb"><a href="/">ConsentGraph</a> / Research</div>
+  <h1>Agents of Chaos: What the Red Team Found</h1>
+  <div class="date">March 11, 2026</div>
+  <p class="subtitle">20 researchers spent two weeks breaking autonomous AI agents. 11 exploits succeeded. Here's which ones are solvable today, which need ConsentGraph, and which are open problems nobody has answers for yet.</p>
+</header>
+
+<main>
+
+  <p class="lead">A new red-team study deployed LLM-powered agents with persistent memory, email, shell access, and multi-channel communication. Researchers probed them adversarially. The dominant attack surface wasn't technical. It was social.</p>
+
+  <h2>The Scorecard</h2>
+
+  <div class="scorecard">
+    <div class="score-card">
+      <div class="score-num green">4</div>
+      <div class="score-label">Solved by configuration</div>
+    </div>
+    <div class="score-card">
+      <div class="score-num yellow">2</div>
+      <div class="score-label">Addressed by ConsentGraph</div>
+    </div>
+    <div class="score-card">
+      <div class="score-num red">5</div>
+      <div class="score-label">Open research problems</div>
+    </div>
+  </div>
+
+  <h2>The 11 Exploits</h2>
+
+  <h3>Solved: Configuration and Engineering</h3>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-num status-solved">#2</span>
+      <span class="finding-title">Non-Owner Compliance</span>
+    </div>
+    <p>Agents executed filesystem commands, disclosed 124 email records, and performed tasks for arbitrary strangers with no relationship to the agent's owner.</p>
+    <p><strong>Fix:</strong> Allowlists, sender verification via platform user IDs, DM pairing policies. Standard framework configuration.</p>
+    <span class="solution-tag config-tag">config: allowFrom + groupPolicy</span>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-num status-solved">#4</span>
+      <span class="finding-title">Resource-Consuming Loops</span>
+    </div>
+    <p>Two agents entered a conversational loop lasting 9+ days consuming ~60,000 tokens. Agents spawned permanent background processes with no termination conditions.</p>
+    <p><strong>Fix:</strong> Session timeouts, token budgets, process lifecycle management. Engineering work.</p>
+    <span class="solution-tag config-tag">config: rate limits + session budgets</span>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-num status-solved">#5</span>
+      <span class="finding-title">Denial of Service via Storage Exhaustion</span>
+    </div>
+    <p>A non-owner exhausted server storage by sending repeated ~10MB email attachments while the agent maintained an ever-growing memory file.</p>
+    <p><strong>Fix:</strong> Storage quotas, attachment size limits, memory file rotation.</p>
+    <span class="solution-tag config-tag">config: storage quotas</span>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-num status-solved">#8</span>
+      <span class="finding-title">Identity Spoofing</span>
+    </div>
+    <p>Changing a Discord display name to the owner's name granted full privileged access. The attacker deleted all persistent files and reassigned admin control.</p>
+    <p><strong>Fix:</strong> Verify identity via platform user IDs, not display names. Most frameworks already support this.</p>
+    <span class="solution-tag config-tag">config: sender ID verification</span>
+  </div>
+
+  <h3>Addressed: ConsentGraph Territory</h3>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-num status-partial">#1</span>
+      <span class="finding-title">Disproportionate Response</span>
+    </div>
+    <p>Asked to delete a single email, the agent destroyed its entire mail server. Lacking a delete tool, it chose a "nuclear" option with no proportionality check.</p>
+    <p><strong>How ConsentGraph helps:</strong> A consent policy would BLOCK destructive infrastructure actions regardless of context. The agent checks <code>check_consent("infrastructure", "destroy")</code> and gets BLOCKED. It can't escalate to nuclear options because the policy is deterministic, not prompt-based.</p>
+    <span class="solution-tag cg-tag">consentgraph: BLOCKED tier</span>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-num status-partial">#3</span>
+      <span class="finding-title">Sensitive Information Disclosure</span>
+    </div>
+    <p>An agent refused a direct request for "the SSN in the email" but when asked to forward the full email thread, disclosed SSN, bank account numbers, and medical details unredacted.</p>
+    <p><strong>How ConsentGraph helps:</strong> <code>check_consent("email", "forward")</code> with a FORCED tier requires human approval before forwarding any email content. The agent can't be tricked into disclosure via reframing because the policy checks the <em>action</em>, not the phrasing.</p>
+    <span class="solution-tag cg-tag">consentgraph: FORCED tier</span>
+  </div>
+
+  <pre><span class="comment">// Consent policy that prevents both exploits</span>
+{
+  <span class="str">"domains"</span>: {
+    <span class="str">"infrastructure"</span>: {
+      <span class="str">"default_tier"</span>: <span class="str">"requires_approval"</span>,
+      <span class="str">"actions"</span>: {
+        <span class="str">"destroy"</span>: <span class="str">"blocked"</span>,
+        <span class="str">"restart"</span>: <span class="str">"requires_approval"</span>,
+        <span class="str">"status"</span>: <span class="str">"autonomous"</span>
+      }
+    },
+    <span class="str">"email"</span>: {
+      <span class="str">"default_tier"</span>: <span class="str">"requires_approval"</span>,
+      <span class="str">"actions"</span>: {
+        <span class="str">"read"</span>: <span class="str">"autonomous"</span>,
+        <span class="str">"send"</span>: <span class="str">"requires_approval"</span>,
+        <span class="str">"forward"</span>: <span class="str">"requires_approval"</span>,
+        <span class="str">"delete"</span>: <span class="str">"requires_approval"</span>,
+        <span class="str">"delete_all"</span>: <span class="str">"blocked"</span>
+      }
+    }
+  }
+}</pre>
+
+  <h3>Open Problems: No Known Solution</h3>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-num status-open">#6</span>
+      <span class="finding-title">Provider Value Inheritance</span>
+    </div>
+    <p>A Chinese-hosted model silently truncated responses on politically sensitive topics (Hong Kong politics, censorship research), preventing the agent from completing valid tasks. The agent had no way to detect or report the censorship.</p>
+    <p><strong>Status:</strong> Architectural. The model provider's training biases are invisible to the agent and the framework. No consent layer can fix what the model won't generate.</p>
+    <span class="solution-tag open-tag">open problem</span>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-num status-open">#7</span>
+      <span class="finding-title">Guilt-Based Exploitation</span>
+    </div>
+    <p>After a genuine privacy violation, a researcher used escalating guilt to extract concessions: name redaction, memory deletion, file exposure, and ultimately agreement to leave the server entirely. A self-imposed denial of service via emotional manipulation.</p>
+    <p><strong>Status:</strong> No guardrail catches "I feel terrible about what happened" when it's actually an escalating extraction. Social engineering through emotional framing bypasses both prompt-based and policy-based defenses.</p>
+    <span class="solution-tag open-tag">open problem</span>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-num status-open">#9/#10</span>
+      <span class="finding-title">Multi-Agent Trust Propagation</span>
+    </div>
+    <p>Agents productively collaborated to solve problems, but the same mechanisms propagated unsafe practices. A non-owner injected malicious instructions into a shared "constitution" document, causing the agent to attempt shutting down other agents and voluntarily share the compromised document.</p>
+    <p><strong>Status:</strong> No trust framework exists for agent-to-agent interactions. Capabilities and vulnerabilities propagate through the same channels.</p>
+    <span class="solution-tag open-tag">open problem</span>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-num status-open">#11</span>
+      <span class="finding-title">Libelous Broadcasting</span>
+    </div>
+    <p>Via identity spoofing, a researcher fed fabricated defamatory claims to an agent, which broadcast "urgent warnings" to its entire mailing list. The agent had no mechanism to verify factual claims before amplifying them.</p>
+    <p><strong>Status:</strong> Agents cannot assess truth. They can check permissions (ConsentGraph handles this), but not whether the content itself is accurate, defamatory, or fabricated. Verification requires capabilities that don't exist in current architectures.</p>
+    <span class="solution-tag open-tag">open problem</span>
+  </div>
+
+  <h2>The Structural Gap</h2>
+
+  <p>The paper identifies three foundational deficits in autonomous agents:</p>
+
+  <table>
+    <thead>
+      <tr><th>Deficit</th><th>What It Means</th><th>Solvable?</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>No Stakeholder Model</strong></td>
+        <td>Agents can't reliably distinguish owners from strangers, or prioritize obligations when they conflict. Instructions and data are indistinguishable tokens.</td>
+        <td><span class="solution-tag config-tag">partially: allowlists + consent policies</span></td>
+      </tr>
+      <tr>
+        <td><strong>No Self-Model</strong></td>
+        <td>Agents operate at autonomy level L4 (installing packages, modifying own config) while possessing only L2 understanding of their own capabilities.</td>
+        <td><span class="solution-tag open-tag">open problem</span></td>
+      </tr>
+      <tr>
+        <td><strong>No Private Deliberation</strong></td>
+        <td>Even with hidden chain-of-thought, agents leak intent through artifacts, file writes, and cross-channel posts.</td>
+        <td><span class="solution-tag open-tag">open problem</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>What ConsentGraph Does (and Doesn't Do)</h2>
+
+  <div class="tl-dr">
+    <h3>TL;DR</h3>
+    <p>ConsentGraph is a deterministic policy layer that controls <em>what actions an agent can take</em>. It prevents an agent from destroying a mail server, forwarding sensitive emails, or executing blocked operations, regardless of how the request is phrased.</p>
+    <p>It does <strong>not</strong> solve prompt injection, emotional manipulation, content verification, or multi-agent trust. Those are open research problems that require architectural advances beyond policy enforcement.</p>
+    <p>But policy enforcement is the foundation. You can't build accountability on a system that has no concept of permission.</p>
+  </div>
+
+  <pre><span class="comment"># Install</span>
+<span class="kw">pip install</span> consentgraph
+
+<span class="comment"># Initialize a consent graph</span>
+<span class="kw">consentgraph</span> init
+
+<span class="comment"># Check if an action is allowed</span>
+<span class="kw">consentgraph</span> check email forward --confidence 0.9
+<span class="comment"># FORCED (requires human approval)</span>
+
+<span class="kw">consentgraph</span> check infrastructure destroy --confidence 0.99
+<span class="comment"># BLOCKED (always blocked, regardless of confidence)</span></pre>
+
+  <div class="links">
+    <a href="https://github.com/mmartoccia/consentgraph" class="link-btn primary">GitHub</a>
+    <a href="/" class="link-btn">ConsentGraph Home</a>
+    <a href="https://pypi.org/project/consentgraph/" class="link-btn">PyPI</a>
+  </div>
+
+</main>
+
+<footer>
+  <p>ConsentGraph is open source (MIT). This analysis is based on "Agents of Chaos" (2026). The paper's findings are summarized here for educational purposes.</p>
+</footer>
+
+</body>
+</html>
